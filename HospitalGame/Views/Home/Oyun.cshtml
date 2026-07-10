@@ -1,0 +1,2488 @@
+﻿@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terk Edilmiş Hastane - Sektör 4</title>
+    <link href="https://fonts.googleapis.com/css2?family=Creepster&family=Special+Elite&display=swap" rel="stylesheet">
+    <style>
+            body, html {
+                margin: 0;
+                padding: 0;
+                width: 100%;
+                height: 100%;
+                overflow: hidden;
+                background-color: #000;
+                font-family: 'Special Elite', monospace;
+                user-select: none;
+            }
+
+            #game-container {
+                width: 100%;
+                height: 100%;
+                position: absolute;
+                top: 0;
+                left: 0;
+                z-index: 1;
+            }
+
+            /* Korkutucu Arayüz Elemanları */
+            #ui-overlay {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                z-index: 10;
+                pointer-events: none;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                padding: 25px;
+                box-sizing: border-box;
+            }
+
+            /* Vignette (Kenar Karartması) ve Kan Efekti */
+            #vignette {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                z-index: 2;
+                pointer-events: none;
+                box-shadow: inset 0 0 100px rgba(0,0,0,0.9), inset 0 0 200px rgba(0,0,0,0.95);
+                transition: box-shadow 0.5s ease;
+            }
+
+            #vignette.panic {
+                box-shadow: inset 0 0 120px rgba(139,0,0,0.85), inset 0 0 220px rgba(0,0,0,0.95);
+            }
+
+            /* Başlangıç Ekranı */
+            #blocker {
+                position: absolute;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0,0,0,0.95);
+                z-index: 100;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                color: #ccc;
+                cursor: pointer;
+                text-align: center;
+                transition: opacity 0.3s ease;
+            }
+
+            #blocker h1 {
+                font-family: 'Creepster', cursive;
+                font-size: 75px;
+                color: #8b0000;
+                margin-bottom: 5px;
+                letter-spacing: 3px;
+                text-shadow: 0 0 15px rgba(139,0,0,0.6);
+                animation: pulse 2s infinite alternate;
+            }
+
+            #blocker p.sub {
+                font-size: 18px;
+                color: #888;
+                margin-bottom: 40px;
+                max-width: 600px;
+                line-height: 1.6;
+            }
+
+            #blocker .btn-start {
+                background-color: #1a0000;
+                border: 2px solid #8b0000;
+                color: #ffcccc;
+                padding: 15px 40px;
+                font-family: 'Special Elite', monospace;
+                font-size: 20px;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                box-shadow: 0 0 15px rgba(139,0,0,0.3);
+            }
+
+            #blocker .btn-start:hover {
+                background-color: #8b0000;
+                color: #fff;
+                box-shadow: 0 0 25px rgba(139,0,0,0.8);
+                transform: scale(1.05);
+            }
+
+            #blocker .controls-guide {
+                margin-top: 50px;
+                font-size: 13px;
+                color: #666;
+                text-align: left;
+                border: 1px dashed rgba(139,0,0,0.3);
+                padding: 20px 30px;
+                border-radius: 5px;
+                background: rgba(10,10,10,0.5);
+            }
+
+            #blocker .controls-guide table td {
+                padding: 5px 15px;
+            }
+
+            /* Oyun İçi HUD */
+            .hud-element {
+                pointer-events: none;
+                text-shadow: 0 0 5px #000, 0 0 10px #000;
+            }
+
+            #heart-rate-panel {
+                display: flex;
+                align-items: center;
+                gap: 15px;
+                color: #8b0000;
+            }
+
+            #heart-rate-text {
+                font-size: 18px;
+                font-weight: bold;
+                letter-spacing: 1px;
+                color: #ff3333;
+            }
+
+            /* Nabız Çizgisi Animasyonu (ECG) */
+            #ecg-svg {
+                width: 120px;
+                height: 40px;
+                stroke: #ff3333;
+                fill: none;
+                stroke-width: 2;
+                stroke-linecap: round;
+            }
+
+            .ecg-line {
+                stroke-dasharray: 600;
+                stroke-dashoffset: 600;
+                animation: ecgDash 2.5s linear infinite;
+            }
+
+            #flashlight-panel {
+                font-size: 16px;
+                color: #dfd7c2;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+
+            .battery-icon {
+                width: 45px;
+                height: 20px;
+                border: 2px solid #dfd7c2;
+                padding: 2px;
+                position: relative;
+                display: flex;
+            }
+
+            .battery-icon::after {
+                content: '';
+                position: absolute;
+                right: -6px;
+                top: 4px;
+                width: 4px;
+                height: 8px;
+                background-color: #dfd7c2;
+            }
+
+            #battery-level {
+                height: 100%;
+                width: 100%;
+                background-color: #00ff00;
+                transition: width 0.3s ease, background-color 0.3s ease;
+            }
+
+            #objective-text {
+                align-self: center;
+                color: #ff3333;
+                font-size: 20px;
+                letter-spacing: 2px;
+                text-align: center;
+                max-width: 80%;
+                animation: flashText 4s infinite;
+            }
+
+            #subtitles {
+                align-self: center;
+                font-size: 18px;
+                color: #dfd7c2;
+                background-color: rgba(0, 0, 0, 0.7);
+                padding: 8px 20px;
+                border-radius: 4px;
+                max-width: 70%;
+                text-align: center;
+                opacity: 0;
+                transition: opacity 0.5s ease;
+                border-left: 3px solid #8b0000;
+                margin-bottom: 20px;
+            }
+
+            #subtitles.active {
+                opacity: 1;
+            }
+
+            #crosshair {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                width: 6px;
+                height: 6px;
+                background-color: rgba(255,255,255,0.2);
+                border-radius: 50%;
+                z-index: 5;
+                pointer-events: none;
+            }
+
+            /* Jumpscare Görsel Efekti */
+            #flash-overlay {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: #ff0000;
+                z-index: 99;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.1s ease;
+            }
+
+            #scare-ghost {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: #000;
+                background-image: radial-gradient(circle, rgba(139,0,0,0.5) 0%, rgba(0,0,0,1) 80%);
+                z-index: 101;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.05s ease;
+            }
+
+            #scare-ghost h2 {
+                font-family: 'Creepster', cursive;
+                font-size: 140px;
+                color: #ff0000;
+                margin: 0;
+                letter-spacing: 15px;
+                text-shadow: 0 0 50px #ff0000;
+                transform: scale(0.6);
+                transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            }
+
+            #scare-ghost.active h2 {
+                transform: scale(1.2);
+            }
+
+            /* Kurtuluş/Bitiş Ekranı */
+            #victory-screen {
+                position: absolute;
+                width: 100%;
+                height: 100%;
+                background-color: #000;
+                z-index: 200;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                color: #dfd7c2;
+                text-align: center;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 2s ease;
+            }
+
+            #victory-screen h1 {
+                font-family: 'Creepster', cursive;
+                font-size: 80px;
+                color: #00ff00;
+                margin-bottom: 20px;
+                text-shadow: 0 0 20px rgba(0,255,0,0.5);
+            }
+
+            #victory-screen p {
+                font-size: 20px;
+                max-width: 600px;
+                line-height: 1.8;
+                margin-bottom: 40px;
+            }
+
+            #victory-screen .btn-back {
+                background-color: #001a00;
+                border: 2px solid #00ff00;
+                color: #ccffcc;
+                padding: 15px 40px;
+                font-family: 'Special Elite', monospace;
+                font-size: 18px;
+                cursor: pointer;
+                transition: all 0.3s ease;
+            }
+
+            #victory-screen .btn-back:hover {
+                background-color: #00ff00;
+                color: #000;
+                box-shadow: 0 0 20px rgba(0,255,0,0.6);
+            }
+
+            /* Animasyonlar */
+            @@keyframes pulse {
+                0% { transform: scale(1); text-shadow: 0 0 15px rgba(139,0,0,0.6); }
+                100% { transform: scale(1.03); text-shadow: 0 0 30px rgba(139,0,0,0.9), 0 0 50px rgba(255,0,0,0.4); }
+            }
+
+            @@keyframes ecgDash {
+                to { stroke-dashoffset: 0; }
+            }
+
+            @@keyframes flashText {
+                0%, 100% { opacity: 0.6; text-shadow: 0 0 5px rgba(255,0,0,0.4); }
+                50% { opacity: 1; text-shadow: 0 0 15px rgba(255,0,0,0.9), 0 0 5px #000; }
+            }
+    </style>
+
+    <!-- Three.js ve PointerLockControls Kütüphaneleri -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
+</head>
+<body>
+
+    <div id="blocker">
+        <div id="instructions">
+            <h1>SEKTÖR 4</h1>
+            <p class="sub">Umut Vadisi Psikiyatri Hastanesi'nin derinliklerinde gizli ve mühürlenmiş Sektör 4'e ulaştın. Kendini kurtarmak için mühürlü ana kapıyı bulmalısın. Fenerine ve adımlarına dikkat et... Karanlıkta yalnız değilsin.</p>
+
+            <button class="btn-start" id="btn-start-game">KAPIDAN İÇERİ GİR</button>
+
+            <div class="controls-guide">
+                <table>
+                    <tr>
+                        <td><strong>W, A, S, D</strong></td>
+                        <td>Hareket Et (Yürü)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Sol Tık / F</strong></td>
+                        <td>Feneri Aç / Kapa</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Shift</strong></td>
+                        <td>Hızlı Koş (Sürat)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Mouse</strong></td>
+                        <td>Etrafına Bak (Fareyi kilitlemek için ekrana tıklayın)</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Jumpscare ve Flaş Efektleri -->
+    <div id="flash-overlay"></div>
+    <div id="scare-ghost">
+        <h2>O BURADA!</h2>
+    </div>
+
+    <!-- Zafer / Kaçış Ekranı -->
+    <div id="victory-screen">
+        <h1>HAYATTASIN!</h1>
+        <p>Sektör 4'ün kabus dolu koridorlarından ve gizli laboratuvarından geçerek mühürlü çıkış kapısını açmayı başardın. Hastanenin karanlığı arkanda kalırken, akciğerlerini dolduran temiz gece havası sana hala yaşadığını fısıldıyor...</p>
+        <button class="btn-back" onclick="window.location.href='/'">ANA MENÜYE DÖN</button>
+    </div>
+
+    <!-- Etkileşim Uyarısı -->
+    <div id="interaction-prompt" style="position: absolute; bottom: 25%; left: 50%; transform: translateX(-50%); font-size: 20px; color: #dfd7c2; background-color: rgba(0,0,0,0.85); padding: 12px 25px; border-radius: 4px; display: none; pointer-events: none; border-left: 4px solid #8b0000; z-index: 100; font-family: 'Special Elite', monospace; text-shadow: 0 0 5px #000; box-shadow: 0 0 15px rgba(0,0,0,0.5);">[E] OKU</div>
+
+    <!-- Gizli Mektup Arayüzü -->
+    <div id="secret-letter-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.9); z-index: 150; display: none; justify-content: center; align-items: center; opacity: 0; transition: opacity 0.5s ease;">
+        <div class="letter-container" style="background: #eedfa9; color: #1c130c; font-family: 'Special Elite', monospace; padding: 45px; border-radius: 4px; box-shadow: 0 0 35px rgba(0,0,0,0.9); max-width: 600px; width: 85%; border: 15px solid #2e2417; position: relative;">
+            <div style="font-weight: bold; font-size: 14px; border-bottom: 2px solid #5a4b35; padding-bottom: 5px; margin-bottom: 20px; display: flex; justify-content: space-between;">
+                <span>SEKTÖR 4 - ÖZEL LABORATUVAR</span>
+                <span>12 Kasım 1974</span>
+            </div>
+            <div style="font-size: 16px; line-height: 1.6; margin-bottom: 30px;">
+                <p><strong>GİZLİ HASTA RAPORU - BAŞHEKİM DR. ARIS</strong></p>
+                <p>Sonunda başardık... Sektör 4'te elektroşok kullanarak zihnin karanlık kapılarını açtık. Ancak bu uyarım, hastaların sadece hafızasını silmedi, aynı zamanda zihinlerinde uyuyan bir "şeyi" uyandırdı.</p>
+                <p>Deneklerin hepsi aynı şeyi söylüyor: <em>"O, ışıklar söndüğünde besleniyor."</em> Onu kontrol edemiyoruz. Duvarlardan sızan o siyah gölge, artık kontrolümüzün tamamen dışına çıktı.</p>
+                <p>Eğer bu notu okuyorsan, kapıyı kilitlemek için çok geç kalmışsın demektir. Sektör 4'ün çıkış kodunu Başhekimlik Odası'ndaki gizli geçit panelinde aktif ettim. Çıkış kapısı kilitlendiğinde, odanın arkasındaki jeneratörü kırmızı alarm moduna al. Ve sakın arkana bakma...</p>
+            </div>
+            <div style="display: flex; justify-content: flex-end;">
+                <button id="btn-close-letter" style="background: #2a221a; color: #dfd7c2; border: 1px solid #5a4b35; padding: 10px 25px; font-family: 'Special Elite', monospace; font-size: 16px; cursor: pointer; transition: all 0.3s; box-shadow: 0 0 10px rgba(0,0,0,0.3);">Kapat ve İlerle</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="vignette"></div>
+    <div id="crosshair"></div>
+
+    <div id="ui-overlay">
+        <!-- ÜST PANEL: Görev ve Fener -->
+        <div style="display: flex; justify-content: space-between; width: 100%;">
+            <div id="flashlight-panel" class="hud-element">
+                <span>FENER:</span>
+                <div class="battery-icon">
+                    <div id="battery-level"></div>
+                </div>
+                <span id="battery-percent">100%</span>
+            </div>
+
+            <div id="heart-rate-panel" class="hud-element">
+                <span id="heart-rate-text">NABIZ: 72 BPM</span>
+                <svg id="ecg-svg" viewBox="0 0 100 30">
+                    <path class="ecg-line" d="M0,15 L30,15 L35,5 L40,25 L45,12 L50,15 L100,15" />
+                </svg>
+            </div>
+        </div>
+
+        <!-- ORTA PANEL: Görev ve Mesajlar -->
+        <div id="objective-text" class="hud-element">GÖREV: Sektör 4'ün çıkış kapısını bul (Koridorun sonuna doğru ilerle)</div>
+
+        <!-- ALT PANEL: Altyazılar -->
+        <div id="subtitles"></div>
+    </div>
+
+    <div id="game-container"></div>
+
+    <script>
+        // --- SES SENTEZLEYİCİ VE SES MOTORU (Web Audio API - Tamamen Ücretsiz ve Bağımsız) ---
+        class HorrorSoundEngine {
+        constructor() {
+        this.ctx = null;
+        this.ambientNode = null;
+        this.windNode = null;
+        this.heartbeatTimer = null;
+        this.heartbeatBPM = 72;
+        this.isInitialized = false;
+        }
+
+        init() {
+        if (this.isInitialized) return;
+        try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        this.ctx = new AudioContext();
+        this.isInitialized = true;
+
+        // 1. Arka Plan Korku Drone Sesi (Uğultu)
+        this.playAmbientDrone();
+        // 2. Rüzgar / HVAC Filtre Sesi
+        this.playWindNoise();
+        // 3. Kalp Atışını Başlat
+        this.startHeartbeatLoop();
+
+        console.log("Korku Ses Motoru Başarıyla Yüklendi.");
+        } catch(e) {
+        console.warn("Ses tarayıcı tarafından engellendi veya desteklenmiyor:", e);
+        }
+        }
+
+        playAmbientDrone() {
+        // İki çok düşük frekanslı osilatör ile vuruşlu (scary beating) derin uğultu oluşturma
+        const osc1 = this.ctx.createOscillator();
+        const osc2 = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        const filter = this.ctx.createBiquadFilter();
+
+        osc1.type = 'sawtooth';
+        osc1.frequency.value = 55; // A1 nota frekansı civarı
+
+        osc2.type = 'sine';
+        osc2.frequency.value = 55.8; // Hafif faz sapması ürpertici vuruş yaratır
+
+        filter.type = 'lowpass';
+        filter.frequency.value = 110; // Sadece bas sesleri geçir
+        filter.Q.value = 3;
+
+        gain.gain.value = 0.12;
+
+        osc1.connect(filter);
+        osc2.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc1.start();
+        osc2.start();
+
+        this.ambientNode = { osc1, osc2, gain };
+        }
+
+        playWindNoise() {
+        // Beyaz gürültü oluşturup dar bir bant geçiren filtreyle rüzgar uğultusu taklidi yapalım
+        const bufferSize = this.ctx.sampleRate * 2;
+        const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1;
+        }
+
+        const whiteNoise = this.ctx.createBufferSource();
+        whiteNoise.buffer = noiseBuffer;
+        whiteNoise.loop = true;
+
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.value = 300;
+        filter.Q.value = 1.5;
+
+        const gain = this.ctx.createGain();
+        gain.gain.value = 0.05;
+
+        // Rüzgar uğultusunun gücünü ve frekansını rastgele dalgalandır
+        setInterval(() => {
+        if (this.ctx && this.ctx.state === 'running') {
+        const t = this.ctx.currentTime;
+        filter.frequency.exponentialRampToValueAtTime(200 + Math.random() * 250, t + 2);
+        gain.gain.linearRampToValueAtTime(0.02 + Math.random() * 0.05, t + 2);
+        }
+        }, 2000);
+
+        whiteNoise.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.ctx.destination);
+        whiteNoise.start();
+
+        this.windNode = whiteNoise;
+        }
+
+        playHeartbeat() {
+        if (!this.ctx || this.ctx.state !== 'running') return;
+        const t = this.ctx.currentTime;
+
+        // Kalp atışı çifte vurur (lub-dub)
+        this.triggerThump(t);
+        this.triggerThump(t + 0.18);
+        }
+
+        triggerThump(time) {
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(65, time);
+        // Frekansı hızla sıfıra düşürerek tok bir vuruş elde et
+        osc.frequency.exponentialRampToValueAtTime(0.01, time + 0.15);
+
+        gain.gain.setValueAtTime(0.5, time);
+        gain.gain.exponentialRampToValueAtTime(0.01, time + 0.15);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(time);
+        osc.stop(time + 0.16);
+        }
+
+        startHeartbeatLoop() {
+        const runLoop = () => {
+        this.playHeartbeat();
+        const interval = (60 / this.heartbeatBPM) * 1000;
+        this.heartbeatTimer = setTimeout(runLoop, interval);
+        };
+        runLoop();
+        }
+
+        setBPM(bpm) {
+        this.heartbeatBPM = Math.max(60, Math.min(bpm, 160));
+        document.getElementById('heart-rate-text').textContent = `NABIZ: ${Math.round(this.heartbeatBPM)} BPM`;
+
+        // ECG Animasyon hızını senkronize et
+        const speed = 180 / this.heartbeatBPM;
+        document.querySelector('.ecg-line').style.animationDuration = `${speed}s`;
+        }
+
+        playFlashlightClick() {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(1200, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(800, this.ctx.currentTime + 0.05);
+
+        gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.05);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.06);
+        }
+
+        playScaryMetalThud() {
+        if (!this.ctx) return;
+        const t = this.ctx.currentTime;
+        // Derin metal darbesi
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        const filter = this.ctx.createBiquadFilter();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(150, t);
+        osc.frequency.exponentialRampToValueAtTime(20, t + 1.5);
+
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(250, t);
+
+        gain.gain.setValueAtTime(0.4, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 1.5);
+
+        // Metalik çınlama (Gürültüyle)
+        const noiseNode = this.ctx.createBufferSource();
+        const bufferSize = this.ctx.sampleRate * 0.5;
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for(let i=0; i<bufferSize; i++) data[i] = Math.random() * 2 - 1;
+        noiseNode.buffer = buffer;
+
+        const noiseGain = this.ctx.createGain();
+        const noiseFilter = this.ctx.createBiquadFilter();
+        noiseFilter.type = 'bandpass';
+        noiseFilter.frequency.value = 600;
+        noiseFilter.Q.value = 5;
+
+        noiseGain.gain.setValueAtTime(0.12, t);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+
+        noiseNode.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+        noiseGain.connect(this.ctx.destination);
+        noiseNode.start(t);
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(t);
+        osc.stop(t + 1.6);
+        }
+
+        playScreechJumpscare() {
+        if (!this.ctx) return;
+        const t = this.ctx.currentTime;
+        // Şiddetli ve korkunç bir metal sürtmesi/çığlık sentezi
+        const duration = 1.2;
+
+        const osc1 = this.ctx.createOscillator();
+        const osc2 = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        const filter = this.ctx.createBiquadFilter();
+
+        osc1.type = 'sawtooth';
+        osc1.frequency.setValueAtTime(800, t);
+        osc1.frequency.linearRampToValueAtTime(300, t + duration);
+
+        osc2.type = 'sawtooth';
+        osc2.frequency.setValueAtTime(815, t);
+        osc2.frequency.linearRampToValueAtTime(290, t + duration);
+
+        // Frekans dalgalanması (Spooky vibrato)
+        const vibrato = this.ctx.createOscillator();
+        const vibratoGain = this.ctx.createGain();
+        vibrato.frequency.value = 25;
+        vibratoGain.gain.value = 50;
+        vibrato.connect(vibratoGain);
+        vibratoGain.connect(osc1.frequency);
+        vibratoGain.connect(osc2.frequency);
+
+        filter.type = 'peaking';
+        filter.frequency.value = 2000;
+        filter.Q.value = 2;
+
+        gain.gain.setValueAtTime(0.35, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+
+        osc1.connect(filter);
+        osc2.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        vibrato.start(t);
+        osc1.start(t);
+        osc2.start(t);
+
+        vibrato.stop(t + duration);
+        osc1.stop(t + duration);
+        osc2.stop(t + duration);
+        }
+
+        playEmergencyAlarm() {
+        if (!this.ctx) return;
+        const t = this.ctx.currentTime;
+
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(220, t);
+
+        const lfo = this.ctx.createOscillator();
+        const lfoGain = this.ctx.createGain();
+        lfo.frequency.value = 1.5;
+        lfoGain.gain.value = 100;
+
+        lfo.connect(lfoGain);
+        lfoGain.connect(osc.frequency);
+
+        gain.gain.setValueAtTime(0.0, t);
+        gain.gain.linearRampToValueAtTime(0.08, t + 0.5);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        lfo.start(t);
+        osc.start(t);
+
+        this.alarmNode = { osc, lfo, gain };
+        }
+
+        stopEmergencyAlarm() {
+        if (this.alarmNode) {
+        const t = this.ctx.currentTime;
+        this.alarmNode.gain.gain.linearRampToValueAtTime(0.0, t + 0.5);
+        const localAlarmNode = this.alarmNode;
+        setTimeout(() => {
+        try {
+        localAlarmNode.osc.stop();
+        localAlarmNode.lfo.stop();
+        } catch(e){}
+        }, 600);
+        this.alarmNode = null;
+        }
+        }
+
+        playGeneratorRumble() {
+        if (!this.ctx) return;
+        const t = this.ctx.currentTime;
+
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        const filter = this.ctx.createBiquadFilter();
+
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(45, t);
+
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(90, t);
+
+        gain.gain.setValueAtTime(0.0, t);
+        gain.gain.linearRampToValueAtTime(0.2, t + 1.0);
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+
+        this.generatorNode = { osc, gain };
+        }
+
+        stopGeneratorRumble() {
+        if (this.generatorNode) {
+        const t = this.ctx.currentTime;
+        this.generatorNode.gain.gain.linearRampToValueAtTime(0.0, t + 0.5);
+        const localGenNode = this.generatorNode;
+        setTimeout(() => {
+        try {
+        localGenNode.osc.stop();
+        } catch(e){}
+        }, 600);
+        this.generatorNode = null;
+        }
+        }
+        }
+
+        const soundEngine = new HorrorSoundEngine();
+
+
+        // --- PROCEDURAL DOKU OLUŞTURUCULARI (Düşük Boyut, Yüksek Detay, Tamamen Bedava) ---
+
+        // 1. Kirli Hastane Duvarı (Altta Fayans, Üstte Kirli Alçı ve Yoğun Kan Lekeleri)
+        function createWallTexture() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+
+        // Baz Rengi (Kirli Krem/Sarı)
+        ctx.fillStyle = '#cfc29d';
+        ctx.fillRect(0, 0, 512, 512);
+
+        // Gürültü ve Küf Efekti (Noise)
+        for (let i = 0; i < 3000; i++) {
+        const x = Math.random() * 512;
+        const y = Math.random() * 512;
+        const size = Math.random() * 2 + 1;
+        ctx.fillStyle = Math.random() > 0.5 ? 'rgba(74, 69, 53, 0.15)' : 'rgba(38, 48, 30, 0.2)';
+        ctx.fillRect(x, y, size, size);
+        }
+
+        // Alt fayans sınır çizgisi
+        ctx.fillStyle = 'rgba(54, 48, 38, 0.4)';
+        ctx.fillRect(0, 256, 512, 4);
+
+        // Alt Kısma Fayans Izgarası Çizimi (Yatay ve dikey derzler)
+        ctx.strokeStyle = 'rgba(54,48,38,0.25)';
+        ctx.lineWidth = 1.5;
+        const tileCols = 8;
+        const tileRows = 4;
+        const tileW = 512 / tileCols;
+        const tileH = 256 / tileRows;
+
+        // Alttaki fayansların rengini hafifçe yeşilimsi yapalım
+        ctx.fillStyle = 'rgba(45, 65, 55, 0.12)';
+        ctx.fillRect(0, 258, 512, 254);
+
+        for (let r = 0; r < tileRows; r++) {
+        const y = 256 + (r * tileH);
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(512, y);
+        ctx.stroke();
+        }
+        for (let c = 0; c < tileCols; c++) {
+        const x = c * tileW;
+        ctx.beginPath();
+        ctx.moveTo(x, 256);
+        ctx.lineTo(x, 512);
+        ctx.stroke();
+        }
+
+        // Büyük Duvar Lekeleri, Rutubet, Karartı
+        for (let j = 0; j < 8; j++) {
+        const grad = ctx.createRadialGradient(
+        Math.random() * 512, Math.random() * 512, 10,
+        Math.random() * 512, Math.random() * 512, Math.random() * 80 + 30
+        );
+        grad.addColorStop(0, 'rgba(40, 30, 10, 0.3)');
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(256, 256, 250, 0, Math.PI * 2);
+        ctx.fill();
+        }
+
+        // DEHŞET VERİCİ KAN LEKELERİ (Kan Sıçramaları ve Akan Damlalar)
+        ctx.fillStyle = 'rgba(110, 5, 5, 0.85)';
+        for (let k = 0; k < 12; k++) {
+        const bloodX = Math.random() * 512;
+        const bloodY = Math.random() * 400 + 50;
+        const radius = Math.random() * 8 + 3;
+
+        // Ana sıçrama noktası
+        ctx.beginPath();
+        ctx.arc(bloodX, bloodY, radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Aşağıya doğru akan kan çizgisi
+        const dripLen = Math.random() * 70 + 20;
+        ctx.strokeStyle = 'rgba(100, 3, 3, 0.8)';
+        ctx.lineWidth = radius * 0.4;
+        ctx.beginPath();
+        ctx.moveTo(bloodX, bloodY);
+        ctx.quadraticCurveTo(bloodX + (Math.random() * 6 - 3), bloodY + dripLen * 0.5, bloodX, bloodY + dripLen);
+        ctx.stroke();
+
+        // Küçük sıçrayan damlalar
+        ctx.fillStyle = 'rgba(90, 0, 0, 0.9)';
+        for (let d = 0; d < 5; d++) {
+        ctx.beginPath();
+        ctx.arc(bloodX + (Math.random() * 40 - 20), bloodY + (Math.random() * 40 - 20), Math.random() * 2 + 1, 0, Math.PI * 2);
+        ctx.fill();
+        }
+        }
+
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+        return texture;
+        }
+
+        // 2. Kirli Beton Yer Karoları ve Kan Göletleri
+        function createFloorTexture() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+
+        // Zemin Baz Rengi (Karanlık Beton Grisi)
+        ctx.fillStyle = '#454545';
+        ctx.fillRect(0, 0, 512, 512);
+
+        // Eskitme ve Pürüzlülük (Noise)
+        for (let i = 0; i < 4000; i++) {
+        const x = Math.random() * 512;
+        const y = Math.random() * 512;
+        const size = Math.random() * 3 + 1;
+        ctx.fillStyle = Math.random() > 0.5 ? 'rgba(20, 20, 20, 0.3)' : 'rgba(255, 255, 255, 0.05)';
+        ctx.fillRect(x, y, size, size);
+        }
+
+        // Derz Çizgileri (Büyük Beton Bloklar)
+        ctx.strokeStyle = '#1a1a1a';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(0, 0, 512, 512);
+        ctx.beginPath();
+        ctx.moveTo(256, 0); ctx.lineTo(256, 512);
+        ctx.moveTo(0, 256); ctx.lineTo(512, 256);
+        ctx.stroke();
+
+        // Rutubet, Karartı ve Pas Lekeleri
+        for (let j = 0; j < 6; j++) {
+        const x = Math.random() * 512;
+        const y = Math.random() * 512;
+        const r = Math.random() * 120 + 40;
+        const grad = ctx.createRadialGradient(x, y, r * 0.1, x, y, r);
+        grad.addColorStop(0, 'rgba(15, 12, 5, 0.6)');
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+        }
+
+        // ÇATLAKLAR (Zeminde beton kırıkları)
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.lineWidth = 1.5;
+        for (let c = 0; c < 3; c++) {
+        let startX = Math.random() * 512;
+        let startY = Math.random() * 512;
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        for (let step = 0; step < 5; step++) {
+        startX += Math.random() * 40 - 20;
+        startY += Math.random() * 40 - 20;
+        ctx.lineTo(startX, startY);
+        }
+        ctx.stroke();
+        }
+
+        // YERDEKİ BÜYÜK KAN GÖLETLERİ (Blood Puddles)
+        for (let b = 0; b < 4; b++) {
+        const px = Math.random() * 400 + 50;
+        const py = Math.random() * 400 + 50;
+        const sizeX = Math.random() * 60 + 30;
+        const sizeY = Math.random() * 30 + 15;
+        const rotation = Math.random() * Math.PI;
+
+        ctx.save();
+        ctx.translate(px, py);
+        ctx.rotate(rotation);
+
+        // Dış gölge / yayılma halkası
+        ctx.fillStyle = 'rgba(60, 0, 0, 0.4)';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, sizeX * 1.1, sizeY * 1.1, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Parlak taze kan katmanı
+        const grad = ctx.createRadialGradient(0, 0, 5, 0, 0, sizeX);
+        grad.addColorStop(0, 'rgba(139, 0, 0, 0.9)');
+        grad.addColorStop(0.8, 'rgba(80, 0, 0, 0.95)');
+        grad.addColorStop(1, 'rgba(40, 0, 0, 1)');
+        ctx.fillStyle = grad;
+
+        ctx.beginPath();
+        // Düzgün olmayan dalgalı bir gölet oluşturmak için oval çizimi bozuyoruz
+        ctx.moveTo(sizeX, 0);
+        for (let angle = 0; angle < Math.PI * 2; angle += 0.2) {
+        const wave = 1 + Math.sin(angle * 5) * 0.12;
+        const rx = sizeX * Math.cos(angle) * wave;
+        const ry = sizeY * Math.sin(angle) * wave;
+        ctx.lineTo(rx, ry);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+        }
+
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+        return texture;
+        }
+
+        // 3. Tavan Plakaları Doku Oluşturucu
+        function createCeilingTexture() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 256;
+        canvas.height = 256;
+        const ctx = canvas.getContext('2d');
+
+        ctx.fillStyle = '#656565';
+        ctx.fillRect(0, 0, 256, 256);
+
+        // Pürüzlülük
+        for (let i = 0; i < 1500; i++) {
+        ctx.fillStyle = 'rgba(0,0,0,0.15)';
+        ctx.fillRect(Math.random()*256, Math.random()*256, 2, 2);
+        }
+
+        // Tavan Plaka Çerçevesi
+        ctx.strokeStyle = '#2d2d2d';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(0, 0, 256, 256);
+
+        // Su sızıntısı ve rutubet sarılığı
+        const grad = ctx.createRadialGradient(128, 128, 10, 128, 128, 100);
+        grad.addColorStop(0, 'rgba(94, 80, 50, 0.35)');
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.arc(128, 128, 120, 0, Math.PI*2); ctx.fill();
+
+        return new THREE.CanvasTexture(canvas);
+        }
+
+        // 4. Paslı Demir Hücre Kapısı Dokusu
+        function createDoorTexture() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 256;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+
+        // Baz Paslı Demir Rengi
+        ctx.fillStyle = '#2c2520';
+        ctx.fillRect(0, 0, 256, 512);
+
+        // Metal Plaka Bölmeleri
+        ctx.fillStyle = '#1e1a17';
+        ctx.fillRect(15, 15, 226, 482);
+
+        // Pas ve Kir Lekeleri
+        for(let i=0; i<15; i++) {
+        const rx = Math.random() * 256;
+        const ry = Math.random() * 512;
+        const rw = Math.random() * 60 + 10;
+        const rh = Math.random() * 60 + 10;
+        const grad = ctx.createRadialGradient(rx, ry, 2, rx, ry, Math.max(rw,rh));
+        grad.addColorStop(0, 'rgba(139, 69, 19, 0.7)'); // Turuncu pas rengi
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(rx-rw, ry-rh, rw*2, rh*2);
+        }
+
+        // Gözetleme penceresi mazgalı (Demir parmaklıklı pencere)
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(68, 80, 120, 90);
+
+        ctx.strokeStyle = '#4a4035';
+        ctx.lineWidth = 6;
+        ctx.strokeRect(68, 80, 120, 90);
+
+        // Parmaklıklar
+        ctx.strokeStyle = '#332b24';
+        ctx.lineWidth = 4;
+        for(let p = 90; p < 180; p += 25) {
+        ctx.beginPath();
+        ctx.moveTo(p, 80);
+        ctx.lineTo(p, 170);
+        ctx.stroke();
+        }
+
+        // Kan İzi (Gözetleme camından aşağı süzülen korkunç el izi)
+        ctx.fillStyle = 'rgba(110, 0, 0, 0.75)';
+        ctx.beginPath();
+        ctx.arc(128, 175, 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillRect(124, 175, 8, 40);
+
+        return new THREE.CanvasTexture(canvas);
+        }
+
+
+        // --- SAHNE, KAMERA VE RENDER KURULUMU ---
+        const scene = new THREE.Scene();
+
+        // Zifiri karanlık atmosferi için koyu sis (Fog) ekleme
+        const fogColor = 0x050505;
+        scene.background = new THREE.Color(fogColor);
+        scene.fog = new THREE.FogExp2(fogColor, 0.08); // Yoğun korku sisi
+
+        const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 100);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.getElementById('game-container').appendChild(renderer.domElement);
+
+        // Zayıf Küresel Işık (Hiçbir fener açık değilken bile her şeyin tamamen görünmez olmaması için çok hafif bir loşluk)
+        const ambientLight = new THREE.AmbientLight(0x0a0a0d);
+        scene.add(ambientLight);
+
+
+        // --- OYUNCU VE KONTROL SİSTEMİ (PointerLock) ---
+        const controls = new THREE.PointerLockControls(camera, document.body);
+        scene.add(controls.getObject());
+
+        const blocker = document.getElementById('blocker');
+        const btnStart = document.getElementById('btn-start-game');
+
+        btnStart.addEventListener('click', () => {
+        controls.lock();
+        });
+
+        controls.addEventListener('lock', () => {
+        blocker.style.pointerEvents = 'none';
+        blocker.style.opacity = '0';
+        setTimeout(() => { blocker.style.display = 'none'; }, 300);
+
+        // Kullanıcı oyunu başlattığı an ses motorunu tetikleme
+        soundEngine.init();
+        if(soundEngine.ctx) {
+        soundEngine.ctx.resume();
+        }
+
+        showSubtitle("Tanrım... Burası berbat kokuyor. Bir an önce çıkmalıyım.", 4000);
+        });
+
+        controls.addEventListener('unlock', () => {
+        if (letterOpened || triggeredEvents.finalVictory) return;
+        blocker.style.display = 'flex';
+        blocker.style.pointerEvents = 'auto';
+        blocker.style.opacity = '1';
+        });
+
+        // Kontrol Tuş Durumları
+        let moveForward = false;
+        let moveBackward = false;
+        let moveLeft = false;
+        let moveRight = false;
+        let isSprinting = false;
+
+        // Kapı ve İkinci Aşama Değişkenleri
+        let doorPanelL, doorPanelR, plank1, plank2;
+        let doorOpenProgress = 0.0;
+        let isDoorOpening = false;
+        let planksFalling = false;
+        let plank1VelocityY = 0;
+        let plank2VelocityY = 0;
+        let plank1RotVelocity = 0;
+        let plank2RotVelocity = 0;
+
+        let secretRoomLights = [];
+        let lampLight, genBulb, exitLight;
+
+        let backWall, backWallCollider;
+        let isBackWallOpening = false;
+
+        let isNearLetter = false;
+        let letterOpened = false;
+        let isNearGen = false;
+
+        document.addEventListener('keydown', (e) => {
+        switch (e.code) {
+        case 'KeyW': case 'ArrowUp': moveForward = true; break;
+        case 'KeyS': case 'ArrowDown': moveBackward = true; break;
+        case 'KeyA': case 'ArrowLeft': moveLeft = true; break;
+        case 'KeyD': case 'ArrowRight': moveRight = true; break;
+        case 'ShiftLeft': case 'ShiftRight': isSprinting = true; break;
+        case 'KeyF': toggleFlashlight(); break;
+        case 'KeyE':
+        if (isNearLetter && !letterOpened) {
+        openSecretLetter();
+        } else if (isNearGen && !triggeredEvents.genActivated) {
+        activateGenerator();
+        }
+        break;
+        }
+        });
+
+        document.addEventListener('keyup', (e) => {
+        switch (e.code) {
+        case 'KeyW': case 'ArrowUp': moveForward = false; break;
+        case 'KeyS': case 'ArrowDown': moveBackward = false; break;
+        case 'KeyA': case 'ArrowLeft': moveLeft = false; break;
+        case 'KeyD': case 'ArrowRight': moveRight = false; break;
+        case 'ShiftLeft': case 'ShiftRight': isSprinting = false; break;
+        }
+        });
+
+        // Sol tık ile de feneri açıp kapatabilme
+        document.addEventListener('mousedown', (e) => {
+        if (controls.isLocked && e.button === 0) {
+        toggleFlashlight();
+        }
+        });
+
+
+        // --- FENER SİSTEMİ (Dynamic SpotLight) ---
+        const flashlight = new THREE.SpotLight(0xfffaed, 3.2, 28, Math.PI / 5, 0.4, 1.2);
+        flashlight.castShadow = true;
+        flashlight.shadow.mapSize.width = 1024;
+        flashlight.shadow.mapSize.height = 1024;
+        flashlight.shadow.camera.near = 0.5;
+        flashlight.shadow.camera.far = 30;
+        flashlight.shadow.bias = -0.001;
+
+        scene.add(flashlight);
+        flashlight.target = new THREE.Object3D();
+        scene.add(flashlight.target);
+
+        let isFlashlightOn = true;
+        let batteryPower = 100.0;
+
+        function toggleFlashlight() {
+        if (batteryPower <= 0) return;
+        isFlashlightOn = !isFlashlightOn;
+        flashlight.visible = isFlashlightOn;
+        soundEngine.playFlashlightClick();
+
+        // Altyazıda fener bilgisini de gösterelim
+        if(!isFlashlightOn) {
+        showSubtitle("*fener kapandı*", 1200);
+        } else {
+        showSubtitle("*fener açıldı*", 1200);
+        }
+        }
+
+
+        // --- KORKUNÇ HASTANE YAPISINI (3D ÇEVRE) PROCEDURAL OLUŞTURMA ---
+
+        // Dokuları Hazırla
+        const wallTex = createWallTexture();
+        wallTex.repeat.set(1, 1);
+
+        const floorTex = createFloorTexture();
+        floorTex.repeat.set(1, 2.5); // Koridor boyunca döşeme tekrarı
+
+        const ceilTex = createCeilingTexture();
+        ceilTex.repeat.set(1, 3.5);
+
+        const doorTex = createDoorTexture();
+
+        // 1. KORİDOR METRİKLERİ VE TEMEL MİMARİSİ
+        const CORRIDOR_WIDTH = 4.5;
+        const CORRIDOR_HEIGHT = 3.6;
+        const CORRIDOR_LENGTH = 160; // Upuzun, klostrofobik bir koridor
+
+        // Zemin Grubu
+        const floorGeo = new THREE.PlaneGeometry(CORRIDOR_WIDTH, CORRIDOR_LENGTH);
+        const floorMat = new THREE.MeshStandardMaterial({
+        map: floorTex,
+        roughness: 0.25,
+        metalness: 0.05
+        });
+        const floor = new THREE.Mesh(floorGeo, floorMat);
+        floor.rotation.x = -Math.PI / 2;
+        floor.position.set(0, 0, -CORRIDOR_LENGTH / 2);
+        floor.receiveShadow = true;
+        scene.add(floor);
+
+        // Tavan Grubu
+        const ceilGeo = new THREE.PlaneGeometry(CORRIDOR_WIDTH, CORRIDOR_LENGTH);
+        const ceilMat = new THREE.MeshStandardMaterial({
+        map: ceilTex,
+        roughness: 0.7
+        });
+        const ceiling = new THREE.Mesh(ceilGeo, ceilMat);
+        ceiling.rotation.x = Math.PI / 2;
+        ceiling.position.set(0, CORRIDOR_HEIGHT, -CORRIDOR_LENGTH / 2);
+        ceiling.receiveShadow = true;
+        scene.add(ceiling);
+
+        // Yan Duvarlar (Segmentlere ayrılmış şekilde oluşturarak yüksek doku kalitesi sağlıyoruz)
+        const segmentLength = 10;
+        const totalSegments = CORRIDOR_LENGTH / segmentLength;
+        const walls = [];
+
+        const wallSegmentGeo = new THREE.PlaneGeometry(segmentLength, CORRIDOR_HEIGHT);
+        const wallMat = new THREE.MeshStandardMaterial({
+        map: wallTex,
+        roughness: 0.45,
+        bumpMap: wallTex,
+        bumpScale: 0.02
+        });
+
+        for (let i = 0; i < totalSegments; i++) {
+        const zPos = -(i * segmentLength) - (segmentLength / 2);
+
+        // Sol Duvar Segmenti
+        const leftWall = new THREE.Mesh(wallSegmentGeo, wallMat);
+        leftWall.rotation.y = Math.PI / 2;
+        leftWall.position.set(-CORRIDOR_WIDTH / 2, CORRIDOR_HEIGHT / 2, zPos);
+        leftWall.receiveShadow = true;
+        leftWall.castShadow = true;
+        scene.add(leftWall);
+        walls.push(leftWall);
+
+        // Sağ Duvar Segmenti
+        const rightWall = new THREE.Mesh(wallSegmentGeo, wallMat);
+        rightWall.rotation.y = -Math.PI / 2;
+        rightWall.position.set(CORRIDOR_WIDTH / 2, CORRIDOR_HEIGHT / 2, zPos);
+        rightWall.receiveShadow = true;
+        rightWall.castShadow = true;
+        scene.add(rightWall);
+        walls.push(rightWall);
+        }
+
+        // 2. KORİDOR KOLONLARI / KİRİŞLERİ (Mimaride derinlik ve gölgeler yaratır)
+        const pillarGeo = new THREE.BoxGeometry(0.3, CORRIDOR_HEIGHT, 0.4);
+        const pillarMat = new THREE.MeshStandardMaterial({ map: wallTex, roughness: 0.5 });
+        const pillars = [];
+
+        for (let z = -10; z >= -CORRIDOR_LENGTH; z -= 10) {
+        if (z === -CORRIDOR_LENGTH) continue;
+
+        // Sol Kolon
+        const pLeft = new THREE.Mesh(pillarGeo, pillarMat);
+        pLeft.position.set(-CORRIDOR_WIDTH/2 + 0.15, CORRIDOR_HEIGHT/2, z);
+        pLeft.castShadow = true;
+        pLeft.receiveShadow = true;
+        scene.add(pLeft);
+        pillars.push(pLeft);
+
+        // Sağ Kolon
+        const pRight = new THREE.Mesh(pillarGeo, pillarMat);
+        pRight.position.set(CORRIDOR_WIDTH/2 - 0.15, CORRIDOR_HEIGHT/2, z);
+        pRight.castShadow = true;
+        pRight.receiveShadow = true;
+        scene.add(pRight);
+        pillars.push(pRight);
+
+        // Tavandaki Kirişler (Kolonları birbirine bağlar)
+        const beamGeo = new THREE.BoxGeometry(CORRIDOR_WIDTH - 0.2, 0.3, 0.3);
+        const beam = new THREE.Mesh(beamGeo, pillarMat);
+        beam.position.set(0, CORRIDOR_HEIGHT - 0.15, z);
+        beam.castShadow = true;
+        scene.add(beam);
+        }
+
+        // 3. PASLI HÜCRE KAPILARI VE SIZINTILAR
+        const doorGeo = new THREE.PlaneGeometry(1.6, 2.6);
+        const doorMat = new THREE.MeshStandardMaterial({ map: doorTex, roughness: 0.6, metalness: 0.4 });
+        const interactiveDoors = [];
+
+        for (let z = -15; z > -CORRIDOR_LENGTH; z -= 18) {
+        // Sol kapılar
+        const dLeft = new THREE.Mesh(doorGeo, doorMat);
+        dLeft.rotation.y = Math.PI / 2;
+        dLeft.position.set(-CORRIDOR_WIDTH/2 + 0.02, 1.3, z);
+        dLeft.receiveShadow = true;
+        scene.add(dLeft);
+
+        // Sağ kapılar
+        const dRight = new THREE.Mesh(doorGeo, doorMat);
+        dRight.rotation.y = -Math.PI / 2;
+        dRight.position.set(CORRIDOR_WIDTH/2 - 0.02, 1.3, z + 6);
+        dRight.receiveShadow = true;
+        scene.add(dRight);
+        }
+
+        // 4. TAVAN BORULARI VE RUST (Ürpertici endüstriyel his)
+        const pipeMat = new THREE.MeshStandardMaterial({ color: 0x221c18, roughness: 0.8, metalness: 0.7 });
+        for (let i = 0; i < 3; i++) {
+        const pipeGeo = new THREE.CylinderGeometry(0.04 + (i*0.02), 0.04 + (i*0.02), CORRIDOR_LENGTH, 8);
+        const pipe = new THREE.Mesh(pipeGeo, pipeMat);
+        pipe.rotation.x = Math.PI / 2;
+        // Tavana yakın yan yana borular yerleştiriyoruz
+        pipe.position.set(-1.8 + (i * 0.25), CORRIDOR_HEIGHT - 0.25, -CORRIDOR_LENGTH / 2);
+        pipe.castShadow = true;
+        scene.add(pipe);
+        }
+
+
+        // --- STATİK TAVAN LAMBALARI VE DİNAMİK FLICKER (Kırpışma) IŞIKLARI ---
+        const lightFixtures = [];
+        const corridorLights = [];
+
+        // Her 15 metrede bir tavan lambası
+        for (let z = -10; z >= -CORRIDOR_LENGTH; z -= 15) {
+        // Lamba Kasası Mesh'i
+        const fixtureGeo = new THREE.BoxGeometry(1.2, 0.08, 0.25);
+        const fixtureMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
+        const fixture = new THREE.Mesh(fixtureGeo, fixtureMat);
+        fixture.position.set(0, CORRIDOR_HEIGHT - 0.04, z);
+        scene.add(fixture);
+
+        // Lamba Floresan Ampulü (Işıklı tüp)
+        const tubeGeo = new THREE.CylinderGeometry(0.03, 0.03, 1.0, 8);
+        // Kırpışacak bazı lambalar için özel materyal açıyoruz
+        const tubeMat = new THREE.MeshBasicMaterial({ color: 0xfffcd3 });
+        const tube = new THREE.Mesh(tubeGeo, tubeMat);
+        tube.rotation.z = Math.PI / 2;
+        tube.position.set(0, CORRIDOR_HEIGHT - 0.08, z);
+        scene.add(tube);
+        lightFixtures.push({ tube, zPos: z });
+
+        // Lambanın yayacağı fiziksel ışık (PointLight)
+        // Son lamba hariç bazıları loş ve kırpışkan olacak
+        const isFlickeringLight = (z !== -CORRIDOR_LENGTH + 10) && (Math.random() > 0.4);
+        const intensity = isFlickeringLight ? 1.5 : 2.5;
+
+        const light = new THREE.PointLight(0xfff5d4, intensity, 12, 1.8);
+        light.position.set(0, CORRIDOR_HEIGHT - 0.2, z);
+        light.castShadow = true;
+        light.shadow.bias = -0.002;
+        light.shadow.mapSize.width = 512;
+        light.shadow.mapSize.height = 512;
+
+        scene.add(light);
+        corridorLights.push({
+        light,
+        tube,
+        baseIntensity: intensity,
+        flickerType: isFlickeringLight ? (Math.random() > 0.5 ? 'rapid' : 'intermittent') : 'steady',
+        nextFlickerTime: 0
+        });
+        }
+
+
+        // --- KORKUTUCU DETAYLAR VE PROP ELEMANLARI (Sedye, Tekerlekli Sandalye vb.) ---
+
+        // 1. TEKERLEKLİ SANDALYE (Wheelchair - Procedural Mesh yapımı)
+        function spawnWheelchair(x, z, rotY) {
+        const group = new THREE.Group();
+        const matMetal = new THREE.MeshStandardMaterial({ color: 0x2d3033, roughness: 0.6, metalness: 0.6 });
+        const matSeat = new THREE.MeshStandardMaterial({ color: 0x1c1a19, roughness: 0.9 });
+        const matRusty = new THREE.MeshStandardMaterial({ color: 0x543625, roughness: 0.8, metalness: 0.3 });
+
+        // Oturma Kısmı (Sünger)
+        const seat = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.1, 0.8), matSeat);
+        seat.position.y = 0.5;
+        group.add(seat);
+
+        // Sırtlık
+        const back = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.1), matSeat);
+        back.position.set(0, 0.9, -0.4);
+        group.add(back);
+
+        // Metal Boru İskeleti (Ayaklar ve kollar)
+        const frame1 = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 1.0), matMetal);
+        frame1.position.set(-0.38, 0.5, -0.38);
+        group.add(frame1);
+
+        const frame2 = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 1.0), matMetal);
+        frame2.position.set(0.38, 0.5, -0.38);
+        group.add(frame2);
+
+        const arm1 = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.03, 0.8), matMetal);
+        arm1.position.set(-0.4, 0.75, 0);
+        group.add(arm1);
+
+        const arm2 = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.03, 0.8), matMetal);
+        arm2.position.set(0.4, 0.75, 0);
+        group.add(arm2);
+
+        // İki Büyük Tekerlek (Torus)
+        const wheelGeo = new THREE.TorusGeometry(0.4, 0.04, 8, 24);
+        const wheel1 = new THREE.Mesh(wheelGeo, matRusty);
+        wheel1.rotation.y = Math.PI / 2;
+        wheel1.position.set(-0.44, 0.4, 0);
+        wheel1.castShadow = true;
+        group.add(wheel1);
+
+        const wheel2 = new THREE.Mesh(wheelGeo, matRusty);
+        wheel2.rotation.y = Math.PI / 2;
+        wheel2.position.set(0.44, 0.4, 0);
+        wheel2.castShadow = true;
+        group.add(wheel2);
+
+        // Küçük ön döner tekerlekler
+        const smallWheelGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.03, 8);
+        const sw1 = new THREE.Mesh(smallWheelGeo, matMetal);
+        sw1.rotation.z = Math.PI / 2;
+        sw1.position.set(-0.35, 0.08, 0.35);
+        group.add(sw1);
+
+        const sw2 = new THREE.Mesh(smallWheelGeo, matMetal);
+        sw2.rotation.z = Math.PI / 2;
+        sw2.position.set(0.35, 0.08, 0.35);
+        group.add(sw2);
+
+        group.position.set(x, 0, z);
+        group.rotation.y = rotY;
+
+        // Tüm çocuklara gölge özelliğini dağıt
+        group.traverse(child => {
+        if(child.isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+        }
+        });
+
+        scene.add(group);
+        return group;
+        }
+
+        // Koridor kenarlarına tekerlekli sandalyeler yerleştir
+        const chair1 = spawnWheelchair(-1.6, -22, Math.PI / 3);
+        const chair2 = spawnWheelchair(1.5, -64, -Math.PI / 4.5);
+
+
+        // 2. TERK EDİLMİŞ SEDYE / HASTANE YATAĞI (Creepy Gurney)
+        function spawnGurney(x, z, rotY) {
+        const group = new THREE.Group();
+        const matFrame = new THREE.MeshStandardMaterial({ color: 0x474e54, roughness: 0.5, metalness: 0.5 });
+        const matMattress = new THREE.MeshStandardMaterial({ color: 0xbbbaa3, roughness: 0.9 }); // Kirli kirli-krem sünger
+
+        // Metal İskelet Alt Tabla
+        const base = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.1, 2.2), matFrame);
+        base.position.y = 0.25;
+        group.add(base);
+
+        // dikey destek demirleri
+        for(let i=0; i<4; i++) {
+        const px = (i % 2 === 0 ? 0.45 : -0.45);
+        const pz = (i < 2 ? 0.9 : -0.9);
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.65), matFrame);
+        leg.position.set(px, 0.55, pz);
+        group.add(leg);
+        }
+
+        // Serum Standı (Drip Pole)
+        const dripPole = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 1.7), matFrame);
+        dripPole.position.set(-0.48, 1.1, -0.95);
+        group.add(dripPole);
+
+        const dripBar = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.02, 0.02), matFrame);
+        dripBar.position.set(-0.48, 1.95, -0.95);
+        group.add(dripBar);
+
+        // Kirli ve Kan Lekeli Yatak Minderi
+        // Minder dokusu için özel kanlı zemin dokusunu minyatürleştirip kullanabiliriz
+        const matMattressBloody = new THREE.MeshStandardMaterial({
+        color: 0xbfbfa8,
+        map: createFloorTexture(), // Kan göletli dokuyu buraya sarıyoruz! Aşırı korkunç görünecek.
+        roughness: 0.9
+        });
+
+        const mattress = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.25, 2.15), matMattressBloody);
+        mattress.position.y = 0.95;
+        group.add(mattress);
+
+        // Baş yastığı
+        const pillow = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.08, 0.4), matMattress);
+        pillow.position.set(0, 1.1, -0.8);
+        group.add(pillow);
+
+        // Küçük tekerlekler
+        for(let i=0; i<4; i++) {
+        const px = (i % 2 === 0 ? 0.45 : -0.45);
+        const pz = (i < 2 ? 0.9 : -0.9);
+        const w = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.05, 8), matFrame);
+        w.rotation.z = Math.PI / 2;
+        w.position.set(px, 0.1, pz);
+        group.add(w);
+        }
+
+        group.position.set(x, 0, z);
+        group.rotation.y = rotY;
+
+        group.traverse(child => {
+        if(child.isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+        }
+        });
+
+        scene.add(group);
+        return group;
+        }
+
+        // Sedye yerleştirme (Koridorda hafif devrilmiş ya da yan durmuş şekilde)
+        const gurney1 = spawnGurney(1.2, -42, Math.PI / 1.1); // Hafif yan dönmüş
+        const gurney2 = spawnGurney(-1.4, -95, -Math.PI / 3.5);
+
+
+        // 3. SEKTÖR 4 BÜYÜK ÇIKIŞ KAPISI (Kilitli devasa mühürlü kapı)
+        const gateGroup = new THREE.Group();
+        const gateFrameMat = new THREE.MeshStandardMaterial({ color: 0x151210, roughness: 0.7 });
+        const gateMetalMat = new THREE.MeshStandardMaterial({
+        map: doorTex,
+        roughness: 0.5,
+        metalness: 0.6
+        });
+
+        // Çerçeve
+        const fLeft = new THREE.Mesh(new THREE.BoxGeometry(0.3, CORRIDOR_HEIGHT, 0.4), gateFrameMat);
+        fLeft.position.set(-CORRIDOR_WIDTH/2 + 0.15, CORRIDOR_HEIGHT/2, -CORRIDOR_LENGTH + 0.2);
+        gateGroup.add(fLeft);
+
+        const fRight = new THREE.Mesh(new THREE.BoxGeometry(0.3, CORRIDOR_HEIGHT, 0.4), gateFrameMat);
+        fRight.position.set(CORRIDOR_WIDTH/2 - 0.15, CORRIDOR_HEIGHT/2, -CORRIDOR_LENGTH + 0.2);
+        gateGroup.add(fRight);
+
+        const fTop = new THREE.Mesh(new THREE.BoxGeometry(CORRIDOR_WIDTH, 0.3, 0.4), gateFrameMat);
+        fTop.position.set(0, CORRIDOR_HEIGHT - 0.15, -CORRIDOR_LENGTH + 0.2);
+        gateGroup.add(fTop);
+
+        // Devasa Çift Kanatlı Demir Kapı
+        // Sol kanat
+        doorPanelL = new THREE.Mesh(new THREE.BoxGeometry((CORRIDOR_WIDTH - 0.6)/2, 3.2, 0.15), gateMetalMat);
+        doorPanelL.position.set(-(CORRIDOR_WIDTH - 0.6)/4, 1.6, -CORRIDOR_LENGTH + 0.2);
+        gateGroup.add(doorPanelL);
+
+        // Sağ kanat
+        doorPanelR = new THREE.Mesh(new THREE.BoxGeometry((CORRIDOR_WIDTH - 0.6)/2, 3.2, 0.15), gateMetalMat);
+        doorPanelR.position.set((CORRIDOR_WIDTH - 0.6)/4, 1.6, -CORRIDOR_LENGTH + 0.2);
+        gateGroup.add(doorPanelR);
+
+        // Kapı üzerindeki tahta mühür barikatı (Mühürlenmiş hissi)
+        const woodMat = new THREE.MeshStandardMaterial({ color: 0x3d2b1f, roughness: 0.95 });
+        plank1 = new THREE.Mesh(new THREE.BoxGeometry(CORRIDOR_WIDTH - 1.0, 0.25, 0.08), woodMat);
+        plank1.position.set(0, 1.4, -CORRIDOR_LENGTH + 0.32);
+        plank1.rotation.z = 0.08;
+        gateGroup.add(plank1);
+
+        plank2 = new THREE.Mesh(new THREE.BoxGeometry(CORRIDOR_WIDTH - 1.0, 0.22, 0.08), woodMat);
+        plank2.position.set(0, 1.8, -CORRIDOR_LENGTH + 0.32);
+        plank2.rotation.z = -0.06;
+        gateGroup.add(plank2);
+
+        // Üstüne kanlı yazı
+        gateGroup.traverse(child => {
+        if(child.isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+        }
+        });
+
+        scene.add(gateGroup);
+
+        // --- BAŞHEKİMİN ODASI (GİZLİ SEKTÖR 5) OLUŞTURMA ---
+        function createSecretRoom() {
+        // Zemin ve Tavan
+        const roomFloorGeo = new THREE.PlaneGeometry(8, 15);
+        const roomFloor = new THREE.Mesh(roomFloorGeo, floorMat);
+        roomFloor.rotation.x = -Math.PI / 2;
+        roomFloor.position.set(0, 0, -167.5);
+        roomFloor.receiveShadow = true;
+        scene.add(roomFloor);
+
+        const roomCeilGeo = new THREE.PlaneGeometry(8, 15);
+        const roomCeil = new THREE.Mesh(roomCeilGeo, ceilMat);
+        roomCeil.rotation.x = Math.PI / 2;
+        roomCeil.position.set(0, CORRIDOR_HEIGHT, -167.5);
+        roomCeil.receiveShadow = true;
+        scene.add(roomCeil);
+
+        // Yan ve Arka Duvarlar
+        const backWallGeo = new THREE.PlaneGeometry(8, CORRIDOR_HEIGHT);
+        backWall = new THREE.Mesh(backWallGeo, wallMat);
+        backWall.position.set(0, CORRIDOR_HEIGHT/2, -175);
+        backWall.rotation.y = Math.PI;
+        backWall.receiveShadow = true;
+        backWall.castShadow = true;
+        scene.add(backWall);
+
+        const leftWallGeo = new THREE.PlaneGeometry(15, CORRIDOR_HEIGHT);
+        const leftWall = new THREE.Mesh(leftWallGeo, wallMat);
+        leftWall.position.set(-4, CORRIDOR_HEIGHT/2, -167.5);
+        leftWall.rotation.y = Math.PI/2;
+        leftWall.receiveShadow = true;
+        leftWall.castShadow = true;
+        scene.add(leftWall);
+
+        const rightWallGeo = new THREE.PlaneGeometry(15, CORRIDOR_HEIGHT);
+        const rightWall = new THREE.Mesh(rightWallGeo, wallMat);
+        rightWall.position.set(4, CORRIDOR_HEIGHT/2, -167.5);
+        rightWall.rotation.y = -Math.PI/2;
+        rightWall.receiveShadow = true;
+        rightWall.castShadow = true;
+        scene.add(rightWall);
+
+        // Ön Duvarlar (Kapının sağ ve sol tarafları)
+        const frontWallLGeo = new THREE.PlaneGeometry(1.75, CORRIDOR_HEIGHT);
+        const frontWallL = new THREE.Mesh(frontWallLGeo, wallMat);
+        frontWallL.position.set(-3.125, CORRIDOR_HEIGHT/2, -160);
+        frontWallL.receiveShadow = true;
+        frontWallL.castShadow = true;
+        scene.add(frontWallL);
+
+        const frontWallRGeo = new THREE.PlaneGeometry(1.75, CORRIDOR_HEIGHT);
+        const frontWallR = new THREE.Mesh(frontWallRGeo, wallMat);
+        frontWallR.position.set(3.125, CORRIDOR_HEIGHT/2, -160);
+        frontWallR.receiveShadow = true;
+        frontWallR.castShadow = true;
+        scene.add(frontWallR);
+
+        // Masa ve Sandalye
+        const tableGroup = new THREE.Group();
+        const matWood = new THREE.MeshStandardMaterial({ color: 0x3a2212, roughness: 0.8 });
+        const tableTop = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.08, 1.0), matWood);
+        tableTop.position.y = 0.8;
+        tableTop.castShadow = true;
+        tableTop.receiveShadow = true;
+        tableGroup.add(tableTop);
+        for (let i = 0; i < 4; i++) {
+        const lx = i % 2 === 0 ? 0.9 : -0.9;
+        const lz = i < 2 ? 0.4 : -0.4;
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.8), matWood);
+        leg.position.set(lx, 0.4, lz);
+        leg.castShadow = true;
+        leg.receiveShadow = true;
+        tableGroup.add(leg);
+        }
+        tableGroup.position.set(0, 0, -168);
+        scene.add(tableGroup);
+
+        // Banker Lambası
+        const lampGroup = new THREE.Group();
+        const matBrass = new THREE.MeshStandardMaterial({ color: 0xb5a642, metalness: 0.8, roughness: 0.2 });
+        const matGlass = new THREE.MeshStandardMaterial({ color: 0x0b6623, roughness: 0.1 });
+        const lampBase = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.02), matBrass);
+        lampBase.position.y = 0.01;
+        lampGroup.add(lampBase);
+        const lampStem = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.3), matBrass);
+        lampStem.position.set(0, 0.15, 0);
+        lampGroup.add(lampStem);
+        const lampShade = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.1, 0.12), matGlass);
+        lampShade.position.set(0, 0.3, 0);
+        lampGroup.add(lampShade);
+        lampGroup.position.set(-0.6, 0.84, -168);
+        scene.add(lampGroup);
+
+        // Lamba Işığı
+        lampLight = new THREE.PointLight(0xfff5d4, 1.8, 6, 1.5);
+        lampLight.position.set(-0.6, 1.15, -168);
+        lampLight.castShadow = true;
+        scene.add(lampLight);
+        secretRoomLights.push(lampLight);
+
+        // Dağınık Kağıt Yaprakları (Scattered papers on floor/desk)
+        const paperGeo = new THREE.PlaneGeometry(0.25, 0.35);
+        const paperMat = new THREE.MeshStandardMaterial({ color: 0xcfbf9f, roughness: 0.9, side: THREE.DoubleSide });
+
+        const paperPositions = [
+        { x: -1.2, z: -164, rotY: 0.5 },
+        { x: 1.5, z: -166, rotY: -0.8 },
+        { x: -0.5, z: -169, rotY: 1.2 },
+        { x: 0.8, z: -172, rotY: 0.3 },
+        { x: -2.2, z: -170, rotY: -1.5 },
+        { x: -0.2, z: -168.3, rotY: 0.1, y: 0.85 } // on the desk
+        ];
+
+        paperPositions.forEach(pos => {
+        const paper = new THREE.Mesh(paperGeo, paperMat);
+        paper.rotation.x = -Math.PI / 2;
+        paper.rotation.z = pos.rotY;
+        paper.position.set(pos.x, pos.y || 0.01, pos.z);
+        paper.receiveShadow = true;
+        scene.add(paper);
+        });
+
+        // Devrilmiş Sandalye (Overturned chair on the floor)
+        const chairGroup = new THREE.Group();
+        const matMetalChair = new THREE.MeshStandardMaterial({ color: 0x1f2224, roughness: 0.5 });
+        const matLeatherSeat = new THREE.MeshStandardMaterial({ color: 0x3d2b1f, roughness: 0.9 });
+
+        const seat = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.05, 0.5), matLeatherSeat);
+        seat.position.y = 0.45;
+        chairGroup.add(seat);
+
+        const backrest = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.4, 0.05), matLeatherSeat);
+        backrest.position.set(0, 0.7, -0.22);
+        chairGroup.add(backrest);
+
+        for (let i = 0; i < 4; i++) {
+        const lx = i % 2 === 0 ? 0.22 : -0.22;
+        const lz = i < 2 ? 0.22 : -0.22;
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.45), matMetalChair);
+        leg.position.set(lx, 0.225, lz);
+        chairGroup.add(leg);
+        }
+
+        chairGroup.position.set(-1.8, 0, -167);
+        chairGroup.rotation.set(Math.PI / 2, 0.4, -0.8); // devrilmiş
+        scene.add(chairGroup);
+        colliders.push({ minX: -2.3, maxX: -1.3, minZ: -168.0, maxZ: -166.0 });
+
+        // Metal Dosya Dolabı (Filing Cabinet - Mektup bunun açık çekmecesinde olacak)
+        const cabinetGroup = new THREE.Group();
+        const matMetal = new THREE.MeshStandardMaterial({ color: 0x5a5d60, roughness: 0.4, metalness: 0.5 });
+        const matDarkGray = new THREE.MeshStandardMaterial({ color: 0x222426, roughness: 0.6 });
+
+        const cabinetFrame = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.5, 0.7), matMetal);
+        cabinetFrame.position.y = 0.75;
+        cabinetFrame.castShadow = true;
+        cabinetFrame.receiveShadow = true;
+        cabinetGroup.add(cabinetFrame);
+
+        const drawerGeo = new THREE.BoxGeometry(0.6, 0.35, 0.6);
+        const drawer = new THREE.Mesh(drawerGeo, matMetal);
+        drawer.position.set(0, 0.65, 0.25); // dışarı doğru çekilmiş
+        drawer.castShadow = true;
+        drawer.receiveShadow = true;
+        cabinetGroup.add(drawer);
+
+        const drawerHandle = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.03, 0.05), matDarkGray);
+        drawerHandle.position.set(0, 0.65, 0.56);
+        cabinetGroup.add(drawerHandle);
+
+        // İnteraktif Mektup Kağıdı (Dolabın açık çekmecesinde gizli)
+        const letterGeo = new THREE.PlaneGeometry(0.25, 0.35);
+        const letterMat = new THREE.MeshStandardMaterial({ color: 0xdfd7c2, roughness: 0.9, side: THREE.DoubleSide });
+        const letterMesh = new THREE.Mesh(letterGeo, letterMat);
+        letterMesh.rotation.x = -Math.PI / 2 + 0.1;
+        letterMesh.rotation.z = 0.2;
+        letterMesh.position.set(0, 0.85, 0.2); // Çekmecenin içinde
+        letterMesh.receiveShadow = true;
+        cabinetGroup.add(letterMesh);
+
+        cabinetGroup.position.set(2.8, 0, -171);
+        cabinetGroup.rotation.y = -Math.PI / 6;
+        scene.add(cabinetGroup);
+        colliders.push({ minX: 2.3, maxX: 3.3, minZ: -172.0, maxZ: -170.0 });
+
+        // Karton Kutular (Scattered cardboard boxes)
+        const cardboardGeo = new THREE.BoxGeometry(0.6, 0.6, 0.6);
+        const matCardboard = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.9 });
+
+        const box1 = new THREE.Mesh(cardboardGeo, matCardboard);
+        box1.position.set(-2.8, 0.3, -172);
+        box1.rotation.y = 0.2;
+        box1.castShadow = true;
+        box1.receiveShadow = true;
+        scene.add(box1);
+        colliders.push({ minX: -3.2, maxX: -2.4, minZ: -172.6, maxZ: -171.4 });
+
+        const box2 = new THREE.Mesh(cardboardGeo, matCardboard);
+        box2.position.set(-2.6, 0.3, -172.8);
+        box2.rotation.y = -0.5;
+        box2.castShadow = true;
+        box2.receiveShadow = true;
+        scene.add(box2);
+        colliders.push({ minX: -3.0, maxX: -2.2, minZ: -173.4, maxZ: -172.2 });
+
+        // Jeneratör Kutusu
+        const genGroup = new THREE.Group();
+        const matGray = new THREE.MeshStandardMaterial({ color: 0x444444, roughness: 0.3 });
+        const panel = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.0, 0.15), matGray);
+        panel.castShadow = true;
+        panel.receiveShadow = true;
+        genGroup.add(panel);
+
+        // Kırmızı LED lamba
+        const bulbGeo = new THREE.SphereGeometry(0.06, 8, 8);
+        const bulbMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        genBulb = new THREE.Mesh(bulbGeo, bulbMat);
+        genBulb.position.set(0, 0.3, 0.08);
+        genGroup.add(genBulb);
+
+        genGroup.position.set(0, 1.2, -174.4);
+        scene.add(genGroup);
+
+        // Gizli Geçit Çıkış Işığı (Jeneratör aktif olunca görünecek)
+        exitLight = new THREE.SpotLight(0xddffdd, 0, 15, Math.PI / 4, 0.5, 1);
+        exitLight.position.set(0, 2, -176);
+        exitLight.target = new THREE.Object3D();
+        exitLight.target.position.set(0, 0, -170);
+        scene.add(exitLight);
+        scene.add(exitLight.target);
+
+        // Başhekim Odası Çarpışma Sınırları
+        colliders.push({ minX: -4.5, maxX: -3.8, minZ: -175.5, maxZ: -159.5 }); // Sol duvar
+        colliders.push({ minX: 3.8, maxX: 4.5, minZ: -175.5, maxZ: -159.5 });  // Sağ duvar
+
+        backWallCollider = { minX: -4.5, maxX: 4.5, minZ: -175.5, maxZ: -174.5 }; // Arka duvar
+        colliders.push(backWallCollider);
+
+        colliders.push({ minX: -4.5, maxX: -2.1, minZ: -160.5, maxZ: -159.5 }); // Giriş sol duvarı
+        colliders.push({ minX: 2.1, maxX: 4.5, minZ: -160.5, maxZ: -159.5 });  // Giriş sağ duvarı
+        colliders.push({ minX: -1.1, maxX: 1.1, minZ: -169.1, maxZ: -166.9 }); // Masa
+        }
+
+
+        // --- ÇARPIŞMA (COLLISION) VE SINIRLARI TANIMLAMA ---
+        // Oyuncunun duvarların ve büyük mobilyaların içinden geçmesini engelleyen basit çarpışma kutuları (Bounding Boxes)
+        const colliders = [];
+
+        // Sol Duvar Sınırı
+        colliders.push({ minX: -CORRIDOR_WIDTH/2, maxX: -CORRIDOR_WIDTH/2 + 0.3, minZ: -CORRIDOR_LENGTH, maxZ: 0 });
+        // Sağ Duvar Sınırı
+        colliders.push({ minX: CORRIDOR_WIDTH/2 - 0.3, maxX: CORRIDOR_WIDTH/2, minZ: -CORRIDOR_LENGTH, maxZ: 0 });
+        // Başlangıç Duvarı (Giriş)
+        colliders.push({ minX: -CORRIDOR_WIDTH/2, maxX: CORRIDOR_WIDTH/2, minZ: -0.5, maxZ: 0.5 });
+        // Son Kapı Sınırı (Kilitliyken geçilmesin)
+        colliders.push({ minX: -CORRIDOR_WIDTH/2, maxX: CORRIDOR_WIDTH/2, minZ: -CORRIDOR_LENGTH - 0.5, maxZ: -CORRIDOR_LENGTH + 0.35 });
+
+        // Mobilyaların Çarpışma Sınırları
+        // Tekerlekli Sandalyeler
+        colliders.push({ minX: -2.0, maxX: -1.0, minZ: -23.5, maxZ: -20.5 });
+        colliders.push({ minX: 0.9, maxX: 2.1, minZ: -65.5, maxZ: -62.5 });
+        // Sedyeler
+        colliders.push({ minX: 0.5, maxX: 1.9, minZ: -43.5, maxZ: -40.5 });
+        colliders.push({ minX: -2.0, maxX: -0.8, minZ: -96.5, maxZ: -93.5 });
+
+        createSecretRoom();
+
+
+        // Oyuncuyu Başlat (0, Yükseklik: 1.6 - Göz seviyesi, Başlangıç Z koordinatı: -2)
+        camera.position.set(0, 1.65, -1.5);
+        camera.rotation.set(0, Math.PI, 0); // Koridora doğru dönük başlat (Z'nin eksisine bakacak şekilde)
+
+
+        // --- HİKAYE VE DİNAMİK KORKUTMA (JUMPSCARE) ETKİNLİKLERİ ---
+        let triggeredEvents = {
+        whisper1: false,
+        flickerOut: false,
+        ghostHallucination: false,
+        metalThud: false,
+        finalRun: false,
+        escaped: false,
+        letterRead: false,
+        genActivated: false,
+        finalVictory: false
+        };
+
+        const subtitleEl = document.getElementById('subtitles');
+        let subtitleTimeout = null;
+
+        function showSubtitle(text, duration) {
+        clearTimeout(subtitleTimeout);
+        subtitleEl.textContent = text;
+        subtitleEl.classList.add('active');
+        subtitleTimeout = setTimeout(() => {
+        subtitleEl.classList.remove('active');
+        }, duration);
+        }
+
+        // Hayalet Silüeti Mesh'i (Shadow figure in distance)
+        const ghostGeo = new THREE.CylinderGeometry(0.3, 0.4, 1.8, 8);
+        const ghostMat = new THREE.MeshBasicMaterial({
+        color: 0x010101,
+        transparent: true,
+        opacity: 0.0
+        });
+        const ghostMesh = new THREE.Mesh(ghostGeo, ghostMat);
+        ghostMesh.position.set(0, 0.9, -52); // İleride ışığın altında bekleyecek
+        scene.add(ghostMesh);
+
+
+        // --- OYUN DÖNGÜSÜ VE FİZİK/HAREKET GÜNCELLEMESİ ---
+        const clock = new THREE.Clock();
+
+        let batteryFlickerThreshold = 15;
+        let isScaredState = false;
+        let finalDoorUnlocked = false;
+
+        function checkTriggerEvents(playerZ) {
+        // Tetikleyici 1: Z = -10 (Fısıltı sesi)
+        if (playerZ < -10 && !triggeredEvents.whisper1) {
+        triggeredEvents.whisper1 = true;
+        showSubtitle("*fısıltı: '...geri dön... daha fazla ilerleme...'*", 3500);
+        soundEngine.setBPM(85);
+        }
+
+        // Tetikleyici 2: Z = -35 (Mekanik Çarpma Sesi ve Işık Kırpışması)
+        if (playerZ < -30 && !triggeredEvents.metalThud) {
+        triggeredEvents.metalThud = true;
+        soundEngine.playScaryMetalThud();
+        showSubtitle("*ileride şiddetli bir metal çarpma sesi yankılanır*", 3500);
+        soundEngine.setBPM(100);
+
+        // Vignette panic efektini tetikle
+        document.getElementById('vignette').classList.add('panic');
+        setTimeout(() => {
+        document.getElementById('vignette').classList.remove('panic');
+        }, 4000);
+        }
+
+        // Tetikleyici 3: Z = -45 (GHOST JUMPSCARE HALLUCINATION)
+        // Oyuncu Z=-43 civarına geldiğinde, ilerideki lambanın altında bir hayalet gölgesi belirir.
+        // Oyuncu feneri tuttukça gölge belirginleşir, sonra ışıklar söner ve çığlık patlar!
+        if (playerZ < -44 && !triggeredEvents.ghostHallucination) {
+        triggeredEvents.ghostHallucination = true;
+
+        // Gölgeyi görünür yap
+        ghostMesh.material.opacity = 0.85;
+        showSubtitle("Aman Tanrım, o da ne?!", 1800);
+        soundEngine.setBPM(135);
+
+        setTimeout(() => {
+        // Korkunç Çığlık sesi çal ve flaş patlat
+        soundEngine.playScreechJumpscare();
+
+        // Jumpscare ekranını saniyelik göster
+        const scareEl = document.getElementById('scare-ghost');
+        scareEl.style.opacity = '1';
+        scareEl.classList.add('active');
+
+        document.getElementById('flash-overlay').style.opacity = '0.9';
+
+        setTimeout(() => {
+        scareEl.style.opacity = '0';
+        scareEl.classList.remove('active');
+        document.getElementById('flash-overlay').style.opacity = '0';
+
+        // Hayaleti ortadan kaldır
+        scene.remove(ghostMesh);
+        showSubtitle("Yok oldu... Sadece bir halüsinasyon muydu?", 3000);
+        soundEngine.setBPM(95);
+        }, 400);
+
+        }, 1500);
+        }
+
+        // Tetikleyici 4: Z = -80 (Karanlık çöküşü - Fener Sönme Krizi)
+        if (playerZ < -78 && !triggeredEvents.flickerOut) {
+        triggeredEvents.flickerOut = true;
+        showSubtitle("Fenerim... Fenerim neden gidip geliyor?!", 3000);
+        soundEngine.setBPM(115);
+
+        // Feneri kırpıştır ve bir süreliğine söndür
+        let flickerCounter = 0;
+        const fInterval = setInterval(() => {
+        flashlight.visible = !flashlight.visible;
+        flickerCounter++;
+        if(flickerCounter > 8) {
+        clearInterval(fInterval);
+        flashlight.visible = false; // Tamamen söndü!
+        isFlashlightOn = false;
+        soundEngine.playFlashlightClick();
+        showSubtitle("Kahretsin, piller bitti sanırım! Tıklayarak vurmayı dene!", 4000);
+
+        // Oyuncu ancak feneri tekrar açmak için fener tuşuna bastığında (sol tık) fener zayıf güçle çalışmaya devam edecek
+        batteryPower = 15.0; // Pili dibe çek
+        }
+        }, 150);
+        }
+
+        // Tetikleyici 5: Z = -115 (Son Koridor - Koşma Çağrısı)
+        if (playerZ < -115 && !triggeredEvents.finalRun) {
+        triggeredEvents.finalRun = true;
+        showSubtitle("*arkadan yaklaşan ağır ayak sesleri duyulur: PAT... PAT... PAT...*", 4500);
+        soundEngine.setBPM(145);
+        document.getElementById('vignette').classList.add('panic');
+
+        // Kapının mührünü kırabilmek için son kısımdaki aksiyon
+        setTimeout(() => {
+        showSubtitle("ARKAMDA BİR ŞEY VAR! KOŞ, SON KAPIDAKİ MÜHRÜ KIR!", 4000);
+        finalDoorUnlocked = true; // Son kapı artık açılabilir durumda
+        }, 3000);
+        }
+
+        // Tetikleyici 6: ÇIKIŞ KAPISINA ULAŞMA (Z < -155.5)
+        if (playerZ < -155.5 && !triggeredEvents.escaped) {
+        if (finalDoorUnlocked) {
+        triggeredEvents.escaped = true;
+        isDoorOpening = true;
+        planksFalling = true;
+        showSubtitle("Mühür kırıldı! Kapı açılıyor!", 3000);
+        soundEngine.playScaryMetalThud();
+
+        // Giriş kapısındaki collideryı devre dışı bırak (oyuncu odaya geçebilsin)
+        colliders[3] = { minX: 0, maxX: 0, minZ: 0, maxZ: 0 };
+
+        // Görevi güncelle
+        document.getElementById('objective-text').textContent = "GÖREV: Başhekim Odasını araştır (Mektubu bul)";
+        } else {
+        // Eğer henüz son koşu tetiklenmediyse
+        showSubtitle("Kapı kalın tahtalarla mühürlenmiş! Buradan çıkış yok gibi...", 2500);
+        }
+        }
+
+        // Tetikleyici 7: GİZLİ GEÇİTTEN KAÇIŞ (Z < -175.2)
+        if (playerZ < -175.2 && triggeredEvents.genActivated && !triggeredEvents.finalVictory) {
+        triggeredEvents.finalVictory = true;
+        controls.unlock();
+        document.getElementById('victory-screen').style.pointerEvents = 'auto';
+        document.getElementById('victory-screen').style.opacity = '1';
+        soundEngine.stopGeneratorRumble();
+        soundEngine.stopEmergencyAlarm();
+        }
+        }
+
+        function handleMovement(delta) {
+        if (!controls.isLocked) return;
+
+        // Oyuncu Hızı (Shift basılıysa koş, fener pilini bir miktar daha hızlı tüketebilir)
+        const speedMultiplier = isSprinting ? 5.8 : 3.2;
+        const moveSpeed = speedMultiplier * delta;
+
+        // Eski Pozisyonu Yedekle (Çarpışma durumunda geri almak için)
+        const oldX = camera.position.x;
+        const oldZ = camera.position.z;
+
+        // Kamera Yön Vektörleri
+        const direction = new THREE.Vector3();
+        camera.getWorldDirection(direction);
+
+        // Sadece yatay düzlemde hareket etmek için Y bileşenini sıfırla ve normalize et
+        direction.y = 0;
+        direction.normalize();
+
+        // Sağa/Sola bakış yön vektörü
+        const sideDirection = new THREE.Vector3();
+        sideDirection.copy(direction).applyAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2);
+
+        let deltaX = 0;
+        let deltaZ = 0;
+
+        if (moveForward) {
+        deltaX += direction.x * moveSpeed;
+        deltaZ += direction.z * moveSpeed;
+        }
+        if (moveBackward) {
+        deltaX -= direction.x * moveSpeed;
+        deltaZ -= direction.z * moveSpeed;
+        }
+        if (moveLeft) {
+        deltaX -= sideDirection.x * moveSpeed;
+        deltaZ -= sideDirection.z * moveSpeed;
+        }
+        if (moveRight) {
+        deltaX += sideDirection.x * moveSpeed;
+        deltaZ += sideDirection.z * moveSpeed;
+        }
+
+        // Yeni Pozisyonu Uygula
+        camera.position.x += deltaX;
+        camera.position.z += deltaZ;
+
+        // --- ÇARPIŞMA SORGULAMASI (COLLISION RESOLUTION) ---
+        const pX = camera.position.x;
+        const pZ = camera.position.z;
+        const radius = 0.45; // Oyuncu kalınlığı
+
+        for (let i = 0; i < colliders.length; i++) {
+        const col = colliders[i];
+
+        // Oyuncu dairesinin, dikdörtgen çarpışma kutusuyla kesişip kesişmediğini kontrol et
+        const closestX = Math.max(col.minX, Math.min(pX, col.maxX));
+        const closestZ = Math.max(col.minZ, Math.min(pZ, col.maxZ));
+
+        const distX = pX - closestX;
+        const distZ = pZ - closestZ;
+        const distanceSq = (distX * distX) + (distZ * distZ);
+
+        if (distanceSq < (radius * radius)) {
+        // Çarpışma var! Pozisyonu geri al (Kayıp ekseni engelle)
+        // Hangi eksende çarpıştığını bulmak için sadece o eksendeki harekete bakıp çözebiliriz
+        camera.position.x = oldX;
+        camera.position.z = oldZ;
+        break;
+        }
+        }
+
+        // Oyuncunun tavanın dışına ya da altına uçmasını engelle (Yükseklik sabitleme)
+        camera.position.y = 1.65;
+
+        // Hikaye tetikleyicilerini kontrol et
+        checkTriggerEvents(camera.position.z);
+        }
+
+        function updateFlickeringLights(time) {
+        corridorLights.forEach(item => {
+        if (item.flickerType === 'steady') return;
+
+        if (time > item.nextFlickerTime) {
+        if (item.flickerType === 'rapid') {
+        // Hızlı sönüp yanma (Floresan arızası)
+        const isOn = Math.random() > 0.15;
+        item.light.intensity = isOn ? item.baseIntensity : 0.05;
+        item.tube.material.color.setHex(isOn ? 0xfffcd3 : 0x222222);
+        item.nextFlickerTime = time + (Math.random() * 0.12 + 0.03);
+        } else if (item.flickerType === 'intermittent') {
+        // Uzun aralıklarla kesintili sönüş
+        const isOff = Math.random() > 0.85;
+        item.light.intensity = isOff ? 0.0 : item.baseIntensity;
+        item.tube.material.color.setHex(isOff ? 0x111111 : 0xfffcd3);
+        item.nextFlickerTime = time + (isOff ? (Math.random() * 1.5 + 0.4) : (Math.random() * 5.0 + 2.0));
+        }
+        }
+        });
+        }
+
+        function updateFlashlightAndBattery(delta, time) {
+        if (!isFlashlightOn) return;
+
+        // Fener Pilini Tüket (Yavaşça)
+        // Shift ile koşarken pil bir nebze daha hızlı giderek gerilimi artırır
+        const drainRate = isSprinting ? 0.8 : 0.4;
+        batteryPower = Math.max(0.0, batteryPower - drainRate * delta);
+
+        // Pil Seviye Göstergesini Güncelle
+        const batteryLvlEl = document.getElementById('battery-level');
+        const batteryPercentEl = document.getElementById('battery-percent');
+        batteryLvlEl.style.width = `${batteryPower}%`;
+        batteryPercentEl.textContent = `${Math.round(batteryPower)}%`;
+
+        // Pil Renk Kodlaması
+        if (batteryPower > 50) {
+        batteryLvlEl.style.backgroundColor = '#00ff00';
+        } else if (batteryPower > 20) {
+        batteryLvlEl.style.backgroundColor = '#ffff00';
+        } else {
+        batteryLvlEl.style.backgroundColor = '#ff0000';
+        }
+
+        // Pil Sıfırlandıysa Feneri Kapat
+        if (batteryPower <= 0.0) {
+        isFlashlightOn = false;
+        flashlight.visible = false;
+        soundEngine.playFlashlightClick();
+        showSubtitle("Lanet olsun, fenerin pili tamamen bitti!", 3500);
+        }
+
+        // Kritik Pil Kırpışması (Flickering Flashlight on Low Battery)
+        if (batteryPower > 0 && batteryPower < batteryFlickerThreshold) {
+        // Rastgele sönüp gelmeler
+        if (Math.random() > 0.88) {
+        flashlight.visible = false;
+        setTimeout(() => { if (isFlashlightOn) flashlight.visible = true; }, Math.random() * 150 + 50);
+        }
+        }
+        }
+
+        // --- ETKİLEŞİM FONKSİYONLARI (MEKTUP & JENERATÖR) ---
+        function openSecretLetter() {
+        letterOpened = true;
+        controls.unlock();
+        const overlay = document.getElementById('secret-letter-overlay');
+        overlay.style.display = 'flex';
+        setTimeout(() => { overlay.style.opacity = '1'; }, 50);
+        soundEngine.playFlashlightClick();
+        }
+
+        // Kapatma düğmesi dinleyicisi
+        document.getElementById('btn-close-letter').addEventListener('click', () => {
+        const overlay = document.getElementById('secret-letter-overlay');
+        overlay.style.opacity = '0';
+        setTimeout(() => {
+        overlay.style.display = 'none';
+        controls.lock();
+
+        // Mektup okundu aşamasını tetikle
+        triggeredEvents.letterRead = true;
+        triggerSecondStageEvent();
+        }, 500);
+        });
+
+        function triggerSecondStageEvent() {
+        // 1. Oda ışıklarını KIRMIZI yap
+        if (lampLight) {
+        lampLight.color.setHex(0xff0000);
+        lampLight.intensity = 4.0;
+        }
+        scene.fog.color.setHex(0x1e0000);
+        renderer.setClearColor(0x1e0000);
+        ambientLight.color.setHex(0x220505);
+
+        // 2. Kırmızı alarm sirenini çal
+        soundEngine.playEmergencyAlarm();
+
+        // 3. Giriş kapısını hızlıca arkasından kapat
+        isDoorOpening = false;
+        let closeProgress = 0.0;
+        const closeInterval = setInterval(() => {
+        closeProgress += 0.05;
+        if (closeProgress >= 1.0) {
+        closeProgress = 1.0;
+        clearInterval(closeInterval);
+        soundEngine.playScaryMetalThud(); // Kapanma sesi
+        showSubtitle("KAPILAR KİLİTLENDİ! Kapana kısıldım!", 3000);
+        }
+        const maxSlide = (CORRIDOR_WIDTH - 0.6) / 2 - 0.2;
+        if (doorPanelL) {
+        doorPanelL.position.x = -((CORRIDOR_WIDTH - 0.6)/4) - (maxSlide * (1.0 - closeProgress));
+        }
+        if (doorPanelR) {
+        doorPanelR.position.x = ((CORRIDOR_WIDTH - 0.6)/4) + (maxSlide * (1.0 - closeProgress));
+        }
+        }, 25);
+
+        // Giriş kapısındaki collideryı geri ekle (oyuncu kaçamasın)
+        colliders[3] = { minX: -CORRIDOR_WIDTH/2, maxX: CORRIDOR_WIDTH/2, minZ: -CORRIDOR_LENGTH - 0.5, maxZ: -CORRIDOR_LENGTH + 0.35 };
+
+        // 4. Görevi güncelle
+        document.getElementById('objective-text').textContent = "GÖREV: Odanın arkasındaki jeneratörü çalıştır!";
+        }
+
+        function activateGenerator() {
+        triggeredEvents.genActivated = true;
+        soundEngine.playGeneratorRumble();
+        soundEngine.playScaryMetalThud();
+
+        // Jeneratör lambasını yeşil yap
+        if (genBulb) {
+        genBulb.material.color.setHex(0x00ff00);
+        }
+
+        // Gizli geçit ışığını aç
+        if (exitLight) {
+        exitLight.intensity = 4.0;
+        }
+
+        // Arka duvarın yukarı kayarak açılmasını sağla
+        isBackWallOpening = true;
+
+        // Arka duvar colliderını devre dışı bırak
+        if (backWallCollider) {
+        backWallCollider.minX = 0;
+        backWallCollider.maxX = 0;
+        backWallCollider.minZ = 0;
+        backWallCollider.maxZ = 0;
+        }
+
+        showSubtitle("Bir şeyler çalıştı! Gizli geçit açılıyor!", 3000);
+        document.getElementById('objective-text').textContent = "GÖREV: Gizli geçitten geçerek Sektör 4'ten KAÇ!";
+        }
+
+        function updateDoorOpening(delta) {
+        // Tahta mühürlerin düşme animasyonu
+        if (planksFalling) {
+        if (plank1) {
+        plank1VelocityY -= 9.8 * delta;
+        plank1.position.y += plank1VelocityY * delta;
+        plank1.position.z += 1.5 * delta;
+        plank1RotVelocity += 0.8 * delta;
+        plank1.rotation.x += plank1RotVelocity * delta;
+        if (plank1.position.y < 0.05) {
+        plank1.position.y = 0.05;
+        plank1VelocityY = 0;
+        }
+        }
+        if (plank2) {
+        plank2VelocityY -= 9.8 * delta;
+        plank2.position.y += plank2VelocityY * delta;
+        plank2.position.z += 2.0 * delta;
+        plank2RotVelocity -= 0.6 * delta;
+        plank2.rotation.y += plank2RotVelocity * delta;
+        if (plank2.position.y < 0.05) {
+        plank2.position.y = 0.05;
+        plank2VelocityY = 0;
+        }
+        }
+        }
+
+        // Kapı kanatlarının açılma animasyonu
+        if (isDoorOpening) {
+        if (doorOpenProgress < 1.0) {
+        doorOpenProgress += 0.8 * delta;
+        if (doorOpenProgress > 1.0) doorOpenProgress = 1.0;
+
+        const maxSlide = (CORRIDOR_WIDTH - 0.6) / 2 - 0.2;
+        if (doorPanelL) {
+        doorPanelL.position.x = -((CORRIDOR_WIDTH - 0.6)/4) - (maxSlide * doorOpenProgress);
+        }
+        if (doorPanelR) {
+        doorPanelR.position.x = ((CORRIDOR_WIDTH - 0.6)/4) + (maxSlide * doorOpenProgress);
+        }
+        }
+        }
+        }
+
+        let genBlinkTimer = 0;
+
+        function animate(time) {
+        requestAnimationFrame(animate);
+
+        const delta = clock.getDelta();
+        const elapsed = clock.getElapsedTime();
+
+        // Oyuncu Hareketini Güncelle
+        handleMovement(delta);
+
+        // Fenerin Pozisyonunu ve Hedefini Kameraya Bağla
+        if (isFlashlightOn) {
+        const offset = new THREE.Vector3(0.18, -0.15, -0.1);
+        offset.applyQuaternion(camera.quaternion);
+        flashlight.position.copy(camera.position).add(offset);
+
+        const targetDir = new THREE.Vector3(0, 0, -1);
+        targetDir.applyQuaternion(camera.quaternion);
+        flashlight.target.position.copy(camera.position).add(targetDir);
+        }
+
+        // Nabız ve vignette güncellemeleri
+        if (controls.isLocked) {
+        if (isSprinting) {
+        soundEngine.setBPM(120);
+        document.getElementById('vignette').classList.add('panic');
+        } else {
+        // Dinamik durum bazlı nabız
+        if (triggeredEvents.finalVictory) {
+        soundEngine.setBPM(72);
+        } else if (triggeredEvents.letterRead) {
+        soundEngine.setBPM(140); // Siren çalıyor panik
+        document.getElementById('vignette').classList.add('panic');
+        } else if (triggeredEvents.finalRun) {
+        soundEngine.setBPM(145);
+        document.getElementById('vignette').classList.add('panic');
+        } else if (triggeredEvents.ghostHallucination) {
+        soundEngine.setBPM(95);
+        } else if (triggeredEvents.flickerOut) {
+        soundEngine.setBPM(115);
+        } else if (triggeredEvents.metalThud) {
+        soundEngine.setBPM(100);
+        } else if (triggeredEvents.whisper1) {
+        soundEngine.setBPM(85);
+        } else {
+        soundEngine.setBPM(72);
+        document.getElementById('vignette').classList.remove('panic');
+        }
+        }
+        }
+
+        // Mektup Etkileşimi Menzil Kontrolü
+        const interactionPrompt = document.getElementById('interaction-prompt');
+        const distToLetter = Math.sqrt((camera.position.x - 2.8) ** 2 + (camera.position.z - -170.8) ** 2);
+
+        if (triggeredEvents.escaped && !triggeredEvents.letterRead && distToLetter < 2.0 && controls.isLocked) {
+        interactionPrompt.textContent = "[E] Dr. Aris'in Notunu Oku";
+        interactionPrompt.style.display = 'block';
+        isNearLetter = true;
+        } else {
+        isNearLetter = false;
+
+        // Jeneratör Etkileşimi Menzil Kontrolü
+        const distToGen = Math.sqrt((camera.position.x - 0) ** 2 + (camera.position.z - -174.4) ** 2);
+        if (triggeredEvents.letterRead && !triggeredEvents.genActivated && distToGen < 1.8 && controls.isLocked) {
+        interactionPrompt.textContent = "[E] Jeneratörü Aktif Et";
+        interactionPrompt.style.display = 'block';
+        isNearGen = true;
+        } else {
+        isNearGen = false;
+        interactionPrompt.style.display = 'none';
+        }
+        }
+
+        // Jeneratör LED Işığı Kırpışması
+        if (triggeredEvents.letterRead && !triggeredEvents.genActivated && genBulb) {
+        genBlinkTimer += delta;
+        if (genBlinkTimer > 0.5) {
+        genBlinkTimer = 0;
+        genBulb.material.color.setHex(genBulb.material.color.getHex() === 0xff0000 ? 0x220000 : 0xff0000);
+        }
+        }
+
+        // Gizli Geçit Kapısının Yukarı Kayma Animasyonu
+        if (isBackWallOpening && backWall && backWall.position.y < CORRIDOR_HEIGHT * 1.5) {
+        backWall.position.y += 1.5 * delta;
+        }
+
+        // Lambaların Kırpışmasını Güncelle
+        updateFlickeringLights(elapsed);
+
+        // Fener Batarya ve Kırpışmasını Güncelle
+        updateFlashlightAndBattery(delta, elapsed);
+
+        // Kapı Açılmasını Güncelle
+        updateDoorOpening(delta);
+
+        // Render Et
+        renderer.render(scene, camera);
+        }
+
+        // Pencere Boyut Değişim Desteği
+        window.addEventListener('resize', () => {
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        });
+
+        // Oyunu ve Animasyon Döngüsünü Başlat
+        animate();
+    </script>
+</body>
+</html>

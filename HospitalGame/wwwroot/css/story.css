@@ -1,0 +1,264 @@
+﻿/* Story Overlay and Atmosphere */
+@import url('https://fonts.googleapis.com/css2?family=Special+Elite&family=Rock+Salt&family=Nanum+Pen+Script&display=swap');
+
+.story-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle, rgba(15, 5, 5, 0.95) 0%, rgba(0, 0, 0, 0.98) 100%);
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.8s ease;
+    backdrop-filter: blur(5px);
+}
+
+    .story-overlay.active {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+/* Crumpled Parchment Letter Container */
+.letter-container {
+    position: relative;
+    width: 580px;
+    height: 650px;
+    max-height: 95vh;
+    background-color: #dfd7c2;
+    /* Simulate wrinkles and folds with multi-layered gradients */
+    background-image: radial-gradient(circle at 50% 50%, rgba(255,255,255,0.3) 0%, rgba(0,0,0,0.08) 100%), linear-gradient(135deg, rgba(0,0,0,0.04) 25%, transparent 25%), linear-gradient(225deg, rgba(0,0,0,0.04) 25%, transparent 25%), linear-gradient(45deg, rgba(0,0,0,0.03) 25%, transparent 25%), linear-gradient(315deg, rgba(0,0,0,0.05) 25%, transparent 25%);
+    background-size: 100% 100%, 60px 60px, 60px 60px, 60px 60px, 60px 60px;
+    padding: 35px 40px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8), inset 0 0 60px rgba(94, 69, 44, 0.4), 0 0 5px rgba(0,0,0,0.2);
+    border: 1px solid #bba585;
+    border-radius: 2px;
+    transform: scale(0.6) rotate(-12deg) translateY(50px);
+    transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.15), opacity 0.8s ease;
+    font-family: 'Special Elite', monospace;
+    color: #26221c;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    overflow: hidden;
+    opacity: 0;
+}
+
+.story-overlay.active .letter-container {
+    transform: scale(1) rotate(0.5deg) translateY(0);
+    opacity: 1;
+}
+
+/* Realistic main vertical & horizontal fold creases */
+.letter-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, transparent 33%, rgba(0,0,0,0.08) 33.3%, rgba(255,255,255,0.2) 33.6%, transparent 34%, transparent 66%, rgba(0,0,0,0.08) 66.3%, rgba(255,255,255,0.2) 66.6%, transparent 67%), linear-gradient(0deg, transparent 49.5%, rgba(0,0,0,0.1) 50%, rgba(255,255,255,0.22) 50.5%, transparent 51%);
+    pointer-events: none;
+    z-index: 3;
+}
+
+/* Grungy Burned-Vignette Edges */
+.letter-container::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    box-shadow: inset 0 0 60px rgba(54, 38, 22, 0.6), inset 0 0 100px rgba(0, 0, 0, 0.3);
+    border: 2px solid rgba(0,0,0,0.15);
+    pointer-events: none;
+    z-index: 4;
+}
+
+/* Letter Elements */
+.letter-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 2px dashed rgba(54, 38, 22, 0.25);
+    padding-bottom: 15px;
+    margin-bottom: 25px;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    z-index: 5;
+}
+
+.letter-stamp {
+    border: 2px solid #8b0000;
+    color: #8b0000;
+    padding: 5px 10px;
+    font-weight: bold;
+    transform: rotate(-15deg);
+    font-size: 13px;
+    letter-spacing: 2px;
+    text-shadow: none;
+    opacity: 0.85;
+    text-transform: uppercase;
+    border-radius: 3px;
+}
+
+.letter-body {
+    flex-grow: 1;
+    font-size: 16px;
+    line-height: 1.6;
+    margin-bottom: 30px;
+    z-index: 5;
+    position: relative;
+    overflow-y: auto;
+    padding-right: 5px;
+}
+
+    /* Custom scrollbar for letter body */
+    .letter-body::-webkit-scrollbar {
+        width: 4px;
+    }
+
+    .letter-body::-webkit-scrollbar-thumb {
+        background: rgba(54, 38, 22, 0.3);
+        border-radius: 2px;
+    }
+
+/* Handwriting fonts for more organic letters */
+.handwritten-personal {
+    font-family: 'Nanum Pen Script', cursive;
+    font-size: 26px;
+    line-height: 1.3;
+    color: #1a1e29;
+}
+
+.handwritten-insane {
+    font-family: 'Rock Salt', cursive;
+    font-size: 16px;
+    line-height: 1.8;
+    color: #7a0000;
+    text-shadow: 0 0 1px rgba(122,0,0,0.2);
+}
+
+.letter-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid rgba(54, 38, 22, 0.15);
+    padding-top: 15px;
+    z-index: 5;
+}
+
+/* Navigation Buttons inside the Letter overlay */
+.letter-nav {
+    display: flex;
+    gap: 15px;
+}
+
+.btn-letter {
+    background: #2a221a;
+    color: #dfd7c2;
+    border: none;
+    padding: 10px 20px;
+    font-family: 'Special Elite', monospace;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    letter-spacing: 1px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+    .btn-letter:hover {
+        background: #8b0000;
+        color: #ffffff;
+        transform: translateY(-2px);
+    }
+
+    .btn-letter:active {
+        transform: translateY(0);
+        transform: scale(0.95);
+    }
+
+    .btn-letter:disabled {
+        background: #cccccc;
+        color: #666666;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+        opacity: 0.5;
+    }
+
+.btn-close-story {
+    background: transparent;
+    border: 1px solid #8b0000;
+    color: #8b0000;
+    padding: 10px 15px;
+    font-family: 'Special Elite', monospace;
+    font-weight: bold;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+    .btn-close-story:hover {
+        background: rgba(139, 0, 0, 0.1);
+    }
+
+/* Splatters/Stains visual styling */
+.ink-splatter {
+    position: absolute;
+    width: 60px;
+    height: 60px;
+    background: radial-gradient(circle, rgba(139,0,0,0.8) 0%, rgba(139,0,0,0) 70%);
+    border-radius: 50%;
+    filter: blur(2px);
+    pointer-events: none;
+    opacity: 0.3;
+    z-index: 4;
+}
+
+.ink-splatter-1 {
+    top: 20%;
+    left: 80%;
+    transform: scale(1.5);
+}
+
+.ink-splatter-2 {
+    bottom: 15%;
+    left: 10%;
+    transform: scale(0.8);
+}
+
+/* Animation class for page transition (crumple/unfold effect) */
+@keyframes pageFlip {
+    0% {
+        transform: scale(1) rotate(0.5deg);
+        opacity: 1;
+    }
+
+    45% {
+        transform: scale(0.9) rotate(-3deg);
+        opacity: 0;
+        filter: blur(2px);
+    }
+
+    55% {
+        transform: scale(0.9) rotate(3deg);
+        opacity: 0;
+        filter: blur(2px);
+    }
+
+    100% {
+        transform: scale(1) rotate(0.5deg);
+        opacity: 1;
+    }
+}
+
+.letter-animating {
+    animation: pageFlip 0.6s ease-in-out;
+}

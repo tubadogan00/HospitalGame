@@ -1,0 +1,54 @@
+﻿@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Terk Edilmiş Hastane</title>
+
+    <link rel="stylesheet" href="~/css/menu.css">
+    <link rel="stylesheet" href="~/css/story.css">
+</head>
+
+<body>
+
+    <div class="background-overlay"></div>
+
+    <div class="menu-container">
+
+        <h1 class="game-title">
+            TERK EDİLMİŞ
+            <span>HASTANE</span>
+        </h1>
+
+        <p class="slogan">
+            Bazı kapılar hiç açılmamalı...
+        </p>
+
+        <div class="menu-buttons">
+
+            <button id="btn-new-game">Yeni Oyun</button>
+
+            <button>Devam Et</button>
+
+            <button>Ayarlar</button>
+
+            <button>Çıkış</button>
+
+        </div>
+
+    </div>
+
+    <!-- ASP.NET Core MVC yönlendirme linkini dinamik olarak JS'e aktarıyoruz -->
+    <script>
+            window.gameStartUrl = '@Url.Action("Oyun", "Home")';
+    </script>
+
+    <script src="~/js/story.js"></script>
+</body>
+
+</html>
