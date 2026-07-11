@@ -69,16 +69,213 @@ body {
         height: 60px;
         border: none;
         cursor: pointer;
-        background: rgba(20,20,20,.85);
+        background: rgba(12, 12, 12, 0.9);
         color: white;
         font-size: 22px;
         font-family: Oswald,sans-serif;
         letter-spacing: 2px;
-        transition: .35s;
+        transition: transform 0.35s ease, background 0.35s ease, border-left 0.35s ease;
         border-left: 4px solid darkred;
+        position: relative;
+        overflow: hidden;
+    }
+
+    /* Kalıcı Kan Lekesi (Arka Plan - Gerçekçi Pıhtılaşmış 3D Kan) */
+    .menu-buttons button::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 60" preserveAspectRatio="none"><filter id="coag-shadow"><feDropShadow dx="0.5" dy="1" stdDeviation="0.8" flood-color="%23000" flood-opacity="0.75"/></filter><path d="M15,10 C22,8 28,14 25,25 C23,32 12,38 8,28 C5,20 10,12 15,10 Z M35,18 C38,16 42,22 39,26 C37,30 31,28 32,24 C32,20 33,20 35,18 Z M12,32 C14,31 16,35 15,37 C13,39 10,38 11,35 Z" fill="%23300000" filter="url(%23coag-shadow)" /><path d="M18,14 C24,12 26,16 23,22 C21,27 15,30 12,24 C10,18 14,16 18,14 Z" fill="%23600000" /><path d="M175,35 C185,32 192,38 188,45 C184,52 170,55 168,48 C166,42 170,38 175,35 Z" fill="%23300000" filter="url(%23coag-shadow)" /><path d="M178,39 C182,37 186,41 184,45 C182,49 174,50 173,46 C172,42 175,41 178,39 Z" fill="%23600000" /><circle cx="160" cy="50" r="1.5" fill="%23300000" /><circle cx="165" cy="54" r="1" fill="%23600000" /><circle cx="195" cy="42" r="1.2" fill="%23300000" /><path d="M260,8 C270,4 278,12 272,20 C267,27 252,24 255,15 C257,8 255,12 260,8 Z" fill="%23300000" filter="url(%23coag-shadow)" /><path d="M262,11 C268,8 272,13 268,17 C265,21 257,20 258,15 Z" fill="%23600000" /><circle cx="245" cy="18" r="1" fill="%23300000" /><circle cx="282" cy="15" r="1.5" fill="%23300000" /><circle cx="288" cy="22" r="0.8" fill="%23600000" /></svg>');
+        background-size: 100% 100%;
+        pointer-events: none;
+        z-index: 1;
+        transition: transform 0.5s ease, opacity 0.5s ease;
+    }
+
+    /* Hover Sırasında Akan Kan Efekti (Gerçekçi Parlak ve Gölgeli Damlalar) */
+    .menu-buttons button::after {
+        content: '';
+        position: absolute;
+        top: -100%; /* Başlangıçta butonun yukarısında gizli */
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 60" preserveAspectRatio="none"><filter id="drip-shadow"><feDropShadow dx="0" dy="1.5" stdDeviation="1.2" flood-color="%23000" flood-opacity="0.85"/></filter><path d="M0,0 L320,0 L320,5 C315,6 312,12 310,25 C308,35 304,38 301,38 C298,38 295,20 290,12 C285,5 282,3 280,3 C278,3 275,18 272,32 C270,42 265,48 261,48 C258,48 255,22 250,12 C245,3 242,1 240,1 C238,1 235,15 232,28 C230,35 228,38 225,38 C222,38 219,25 215,12 C210,3 207,1 205,1 C202,1 198,18 195,30 C193,38 189,42 186,42 C183,42 180,22 175,10 C170,3 167,1 165,1 C162,1 158,25 155,42 C153,52 148,55 145,55 C142,55 139,30 135,15 C130,3 127,1 125,1 C122,1 118,18 115,28 C113,34 110,36 108,36 C105,36 102,20 98,12 C94,3 91,1 89,1 C86,1 82,32 79,48 C77,56 72,58 69,58 C66,58 63,28 58,15 C54,3 51,1 49,1 C46,1 42,18 39,26 C37,32 35,34 32,34 C29,34 26,18 22,10 C18,3 15,1 12,1 C9,1 5,12 0,5 Z" fill="%237a0000" filter="url(%23drip-shadow)" /><path d="M0,0 L320,0 L320,3 C315,4 311,10 309,20 C308,28 304,32 301,32 C298,32 295,18 290,10 C278,2 275,15 272,28 C270,36 265,42 261,42 C258,42 255,20 250,10 C238,1 235,12 232,24 C230,30 228,32 225,32 C222,32 219,20 215,10 C202,1 198,15 195,26 C193,32 189,36 186,36 C183,36 180,18 175,8 C162,1 158,22 155,38 C153,46 148,49 145,49 C142,49 139,26 135,12 C122,1 118,15 115,24 C113,28 110,30 108,30 C105,30 102,16 98,10 C86,1 82,28 79,42 C77,48 72,50 69,50 C66,50 63,24 58,12 C46,1 42,15 39,22 C37,26 35,28 32,28 C29,28 26,15 22,8 C9,1 5,10 0,3 Z" fill="%23b00000" /><circle cx="145" cy="59" r="1.5" fill="%23b00000" /><circle cx="69" cy="62" r="1.5" fill="%237a0000" /><circle cx="261" cy="53" r="1" fill="%23b00000" /><circle cx="301" cy="43" r="1.2" fill="%237a0000" /></svg>');
+        background-size: 100% 100%;
+        pointer-events: none;
+        z-index: 1;
+        transition: top 0.45s cubic-bezier(0.18, 0.89, 0.32, 1.28), opacity 0.45s ease;
+        opacity: 0;
+    }
+
+    .menu-buttons button span {
+        position: relative;
+        z-index: 2; /* Metnin her zaman kan lekelerinin üstünde kalmasını sağlar */
+        text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
     }
 
         .menu-buttons button:hover {
-            transform: scale(1.05);
-            background: #8b0000;
+            transform: scale(1.06);
+            background: rgba(30, 0, 0, 0.95);
+            border-left: 8px solid #ff0000;
+            box-shadow: 0 0 15px rgba(139, 0, 0, 0.6);
         }
+
+        .menu-buttons button:hover::before {
+            transform: scale(1.15);
+            opacity: 0.85;
+        }
+
+        .menu-buttons button:hover::after {
+            top: 0;
+            opacity: 1;
+        }
+
+/* ==========================================================================
+   KORKU ATMOSFERİ EFEKTLERİ (SİS, VİGNETTE, KALP ATIŞI VE HALÜSİNASYONLAR)
+   ========================================================================== */
+
+/* 1. Kırmızı/Siyah Titreyen Kalp Atışı Vignette Efekti */
+.vignette {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    box-shadow: inset 0 0 160px rgba(0, 0, 0, 0.96);
+    pointer-events: none;
+    z-index: 9;
+    transition: box-shadow 0.25s ease-out;
+}
+
+/* Kalp Atışı Tetiklendiğinde (GÜM - Büyük Dalga) */
+.vignette.pulse-active {
+    box-shadow: inset 0 0 185px rgba(160, 0, 0, 0.55), inset 0 0 160px rgba(0, 0, 0, 0.96);
+}
+
+/* Kalp Atışı Tetiklendiğinde (güm - Küçük Dalga) */
+.vignette.pulse-active-subtle {
+    box-shadow: inset 0 0 175px rgba(139, 0, 0, 0.45), inset 0 0 160px rgba(0, 0, 0, 0.96);
+}
+
+/* 2. Başlık Titreşim (Flicker) Efekti */
+@keyframes titleFlicker {
+    0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% {
+        text-shadow: 0 0 10px #000, 0 0 25px darkred;
+        opacity: 1;
+    }
+    20%, 24%, 55% {
+        text-shadow: none;
+        opacity: 0.45;
+        color: #777777;
+    }
+}
+
+.game-title span {
+    display: block;
+    color: #b30000;
+    animation: titleFlicker 6s infinite alternate ease-in-out;
+}
+
+/* 3. Dinamik Volumetrik Sis Efektleri */
+.fog-wrapper {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    overflow: hidden;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0.38;
+}
+
+.fog-layer {
+    position: absolute;
+    width: 200%;
+    height: 100%;
+    /* Gelişmiş, gürültü bazlı SVG sis deseni */
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1000" viewBox="0 0 1000 1000"><filter id="fog-noise" x="0%" y="0%" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.006" numOctaves="4" result="noise" /><feColorMatrix type="matrix" values="0.7 0 0 0 0.8  0 0.7 0 0 0.8  0 0 0.7 0 0.8  0 0 0 0.22 0" /></filter><rect width="1000" height="1000" filter="url(%23fog-noise)" opacity="0.75" fill="none"/></svg>');
+    background-repeat: repeat-x;
+}
+
+.fog-layer-1 {
+    left: 0;
+    top: 0;
+    animation: moveFogRightToLeft 80s linear infinite;
+    filter: blur(8px);
+}
+
+.fog-layer-2 {
+    left: -50%;
+    top: 15%;
+    animation: moveFogLeftToRight 55s linear infinite;
+    filter: blur(12px);
+    opacity: 0.8;
+}
+
+@keyframes moveFogRightToLeft {
+    0% { transform: translate3d(0, 0, 0); }
+    100% { transform: translate3d(-50%, 0, 0); }
+}
+
+@keyframes moveFogLeftToRight {
+    0% { transform: translate3d(0, 0, 0); }
+    100% { transform: translate3d(50%, 0, 0); }
+}
+
+/* 4. Korkunç Halüsinasyonlar (Jumpscares) */
+
+/* Kızıl Gözler */
+.creepy-eyes-jumpscare {
+    position: absolute;
+    width: 50px;
+    height: 15px;
+    display: flex;
+    justify-content: space-between;
+    z-index: 1; /* Arka planda kalır */
+    opacity: 0;
+    transition: opacity 1s ease-in-out;
+    pointer-events: none;
+}
+
+.creepy-eyes-jumpscare.active {
+    opacity: 0.75;
+    animation: eyesBlink 2s infinite ease-in-out;
+}
+
+.creepy-eyes-jumpscare .eye {
+    width: 14px;
+    height: 14px;
+    background: radial-gradient(circle, #ff0000 20%, #440000 70%, transparent 100%);
+    border-radius: 50%;
+    box-shadow: 0 0 10px #ff0000, 0 0 20px #8b0000;
+}
+
+@keyframes eyesBlink {
+    0%, 100%, 45%, 55% { transform: scaleY(1); }
+    50% { transform: scaleY(0); }
+}
+
+/* Sinsice Süzülen Gölge Figürü */
+.creepy-shadow-jumpscare {
+    position: absolute;
+    width: 250px;
+    height: 400px;
+    background: radial-gradient(ellipse at center, rgba(5,5,5,0.92) 0%, rgba(3,3,3,0.6) 45%, rgba(0,0,0,0) 70%);
+    filter: blur(25px);
+    border-radius: 40%;
+    z-index: 1;
+    opacity: 0;
+    transform: scale(0.85) translate(0, 20px);
+    transition: opacity 1.2s ease-in-out, transform 2.2s ease-in-out;
+    pointer-events: none;
+}
+
+.creepy-shadow-jumpscare.active {
+    opacity: 0.65;
+    transform: scale(1.05) translate(-10px, -10px);
+}

@@ -16,6 +16,15 @@
 
 <body>
 
+    <!-- Kalp Atışı Vignette Karartma Efekti -->
+    <div class="vignette"></div>
+
+    <!-- Volumetrik Hareketli Sis Katmanları -->
+    <div class="fog-wrapper">
+        <div class="fog-layer fog-layer-1"></div>
+        <div class="fog-layer fog-layer-2"></div>
+    </div>
+
     <div class="background-overlay"></div>
 
     <div class="menu-container">
@@ -31,13 +40,13 @@
 
         <div class="menu-buttons">
 
-            <button id="btn-new-game">Yeni Oyun</button>
+            <button id="btn-new-game"><span>Yeni Oyun</span></button>
 
-            <button>Devam Et</button>
+            <button><span>Devam Et</span></button>
 
-            <button>Ayarlar</button>
+            <button><span>Ayarlar</span></button>
 
-            <button>Çıkış</button>
+            <button><span>Çıkış</span></button>
 
         </div>
 
@@ -48,6 +57,7 @@
             window.gameStartUrl = '@Url.Action("Oyun", "Home")';
     </script>
 
+    <script src="~/js/menu-effects.js"></script>
     <script src="~/js/story.js"></script>
 </body>
 
