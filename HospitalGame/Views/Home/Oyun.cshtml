@@ -2127,12 +2127,12 @@
         deltaZ -= direction.z * moveSpeed;
         }
         if (moveLeft) {
-        deltaX -= sideDirection.x * moveSpeed;
-        deltaZ -= sideDirection.z * moveSpeed;
+            deltaX += sideDirection.x * moveSpeed;
+            deltaZ += sideDirection.z * moveSpeed;
         }
         if (moveRight) {
-        deltaX += sideDirection.x * moveSpeed;
-        deltaZ += sideDirection.z * moveSpeed;
+            deltaX -= sideDirection.x * moveSpeed;
+            deltaZ -= sideDirection.z * moveSpeed;
         }
 
         // Yeni Pozisyonu Uygula
