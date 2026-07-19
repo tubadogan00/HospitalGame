@@ -1,4 +1,4 @@
-﻿@{
+@{
     Layout = null;
 }
 <!DOCTYPE html>
@@ -272,6 +272,37 @@
                 opacity: 0;
                 pointer-events: none;
                 transition: opacity 0.05s ease;
+                overflow: hidden;
+            }
+
+            #scare-ghost img {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                opacity: 0.85;
+                filter: contrast(1.3) brightness(0.9);
+                transform: scale(1.1);
+            }
+
+            @@keyframes scare-shake {
+                0% { transform: translate(1px, 1px) rotate(0deg) scale(1.2); }
+                10% { transform: translate(-1px, -2px) rotate(-1deg) scale(1.2); }
+                20% { transform: translate(-3px, 0px) rotate(1deg) scale(1.25); }
+                30% { transform: translate(0px, 2px) rotate(0deg) scale(1.2); }
+                40% { transform: translate(1px, -1px) rotate(1deg) scale(1.25); }
+                50% { transform: translate(-1px, 2px) rotate(-1deg) scale(1.2); }
+                60% { transform: translate(-3px, 1px) rotate(0deg) scale(1.2); }
+                70% { transform: translate(2px, 1px) rotate(-1deg) scale(1.25); }
+                80% { transform: translate(-1px, -1px) rotate(1deg) scale(1.2); }
+                90% { transform: translate(2px, 2px) rotate(0deg) scale(1.25); }
+                100% { transform: translate(1px, -2px) rotate(-1deg) scale(1.2); }
+            }
+
+            #scare-ghost.active img {
+                animation: scare-shake 0.15s infinite;
             }
 
             #scare-ghost h2 {
@@ -283,6 +314,7 @@
                 text-shadow: 0 0 50px #ff0000;
                 transform: scale(0.6);
                 transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+                z-index: 102;
             }
 
             #scare-ghost.active h2 {
@@ -394,6 +426,7 @@
     <!-- Jumpscare ve Flaş Efektleri -->
     <div id="flash-overlay"></div>
     <div id="scare-ghost">
+        <img src="/images/scary_ghost.jpg" alt="Ghost Jumpscare" />
         <h2>O BURADA!</h2>
     </div>
 
@@ -449,7 +482,7 @@
         </div>
 
         <!-- ORTA PANEL: Görev ve Mesajlar -->
-        <div id="objective-text" class="hud-element">GÖREV: Sektör 4'ün çıkış kapısını bul (Koridorun sonuna doğru ilerle)</div>
+        <div id="objective-text" class="hud-element">GÖREV: Hastane kapısından içeri gir</div>
 
         <!-- ALT PANEL: Altyazılar -->
         <div id="subtitles"></div>
@@ -1174,6 +1207,22 @@
         let backWall, backWallCollider;
         let isBackWallOpening = false;
 
+        let entranceDoorPanelL, entranceDoorPanelR;
+        let entranceDoorOpenProgress = 0.0;
+        let isEntranceDoorOpening = false;
+        let isEntranceDoorClosing = false;
+        let isNearEntranceDoor = false;
+
+        let hasKey = false;
+        let isNearKey = false;
+        let isNearFinalExitDoor = false;
+        let finalExitDoorOpen = false;
+        let isFinalExitDoorOpening = false;
+        let finalExitDoorOpenProgress = 0.0;
+        let finalExitDoorPanelL;
+        let keyMesh;
+        let finalExitDoorCollider;
+
         let isNearLetter = false;
         let letterOpened = false;
         let isNearGen = false;
@@ -1187,10 +1236,32 @@
         case 'ShiftLeft': case 'ShiftRight': isSprinting = true; break;
         case 'KeyF': toggleFlashlight(); break;
         case 'KeyE':
-        if (isNearLetter && !letterOpened) {
-        openSecretLetter();
+        if (isNearEntranceDoor) {
+            isEntranceDoorOpening = true;
+            soundEngine.playScaryMetalThud();
+            colliders[2] = { minX: 0, maxX: 0, minZ: 0, maxZ: 0 };
+        } else if (isNearKey) {
+            hasKey = true;
+            scene.remove(keyMesh);
+            soundEngine.playFlashlightClick();
+            showSubtitle("Anahtarı aldım. Artık çıkış kapısını açabilirim.", 3500);
+            document.getElementById('objective-text').textContent = "GÖREV: Çıkış kapısının kilidini aç!";
+        } else if (isNearFinalExitDoor && hasKey) {
+            finalExitDoorOpen = true;
+            isFinalExitDoorOpening = true;
+            soundEngine.playScaryMetalThud();
+            showSubtitle("Kapı kilidi açıldı! Çıkış yolu serbest!", 3500);
+            document.getElementById('objective-text').textContent = "GÖREV: Sektör 4'ten KAÇ VE KURTUL!";
+            if (finalExitDoorCollider) {
+                finalExitDoorCollider.minX = 0;
+                finalExitDoorCollider.maxX = 0;
+                finalExitDoorCollider.minZ = 0;
+                finalExitDoorCollider.maxZ = 0;
+            }
+        } else if (isNearLetter && !letterOpened) {
+            openSecretLetter();
         } else if (isNearGen && !triggeredEvents.genActivated) {
-        activateGenerator();
+            activateGenerator();
         }
         break;
         }
@@ -1648,6 +1719,93 @@
 
         scene.add(gateGroup);
 
+        // --- DIŞ ALAN OLUŞTURMA (Hastanenin Dış Kısmı ve Giriş Kapısı) ---
+        // Dış Zemin
+        const outsideFloorGeo = new THREE.PlaneGeometry(CORRIDOR_WIDTH, 12);
+        const outsideFloorMat = new THREE.MeshStandardMaterial({
+            color: 0x121214,
+            roughness: 0.9,
+            metalness: 0.1
+        });
+        const outsideFloor = new THREE.Mesh(outsideFloorGeo, outsideFloorMat);
+        outsideFloor.rotation.x = -Math.PI / 2;
+        outsideFloor.position.set(0, 0, 5.0);
+        outsideFloor.receiveShadow = true;
+        scene.add(outsideFloor);
+
+        // Dış Tavan (Sundurma)
+        const outsideCeilGeo = new THREE.PlaneGeometry(CORRIDOR_WIDTH, 12);
+        const outsideCeilMat = new THREE.MeshStandardMaterial({
+            color: 0x0f0f11,
+            roughness: 0.95
+        });
+        const outsideCeiling = new THREE.Mesh(outsideCeilGeo, outsideCeilMat);
+        outsideCeiling.rotation.x = Math.PI / 2;
+        outsideCeiling.position.set(0, CORRIDOR_HEIGHT, 5.0);
+        scene.add(outsideCeiling);
+
+        // Dış Sol Duvar
+        const outsideWallGeo = new THREE.PlaneGeometry(12, CORRIDOR_HEIGHT);
+        const outsideLeftWall = new THREE.Mesh(outsideWallGeo, wallMat);
+        outsideLeftWall.rotation.y = Math.PI / 2;
+        outsideLeftWall.position.set(-CORRIDOR_WIDTH / 2, CORRIDOR_HEIGHT / 2, 5.0);
+        outsideLeftWall.receiveShadow = true;
+        outsideLeftWall.castShadow = true;
+        scene.add(outsideLeftWall);
+
+        // Dış Sağ Duvar
+        const outsideRightWall = new THREE.Mesh(outsideWallGeo, wallMat);
+        outsideRightWall.rotation.y = -Math.PI / 2;
+        outsideRightWall.position.set(CORRIDOR_WIDTH / 2, CORRIDOR_HEIGHT / 2, 5.0);
+        outsideRightWall.receiveShadow = true;
+        outsideRightWall.castShadow = true;
+        scene.add(outsideRightWall);
+
+        // Dış Arka Duvar
+        const outsideBackWallGeo = new THREE.PlaneGeometry(CORRIDOR_WIDTH, CORRIDOR_HEIGHT);
+        const outsideBackWall = new THREE.Mesh(outsideBackWallGeo, wallMat);
+        outsideBackWall.position.set(0, CORRIDOR_HEIGHT / 2, 10.0);
+        outsideBackWall.receiveShadow = true;
+        outsideBackWall.castShadow = true;
+        scene.add(outsideBackWall);
+
+        // Giriş Kapısı Grubu
+        const entranceGateGroup = new THREE.Group();
+        const entranceFrameMat = new THREE.MeshStandardMaterial({ color: 0x18181c, roughness: 0.7 });
+        const entranceMetalMat = new THREE.MeshStandardMaterial({
+            map: doorTex,
+            roughness: 0.5,
+            metalness: 0.6
+        });
+
+        const efLeft = new THREE.Mesh(new THREE.BoxGeometry(0.3, CORRIDOR_HEIGHT, 0.4), entranceFrameMat);
+        efLeft.position.set(-CORRIDOR_WIDTH/2 + 0.15, CORRIDOR_HEIGHT/2, 0);
+        entranceGateGroup.add(efLeft);
+
+        const efRight = new THREE.Mesh(new THREE.BoxGeometry(0.3, CORRIDOR_HEIGHT, 0.4), entranceFrameMat);
+        efRight.position.set(CORRIDOR_WIDTH/2 - 0.15, CORRIDOR_HEIGHT/2, 0);
+        entranceGateGroup.add(efRight);
+
+        const efTop = new THREE.Mesh(new THREE.BoxGeometry(CORRIDOR_WIDTH, 0.3, 0.4), entranceFrameMat);
+        efTop.position.set(0, CORRIDOR_HEIGHT - 0.15, 0);
+        entranceGateGroup.add(efTop);
+
+        entranceDoorPanelL = new THREE.Mesh(new THREE.BoxGeometry((CORRIDOR_WIDTH - 0.6)/2, 3.2, 0.15), entranceMetalMat);
+        entranceDoorPanelL.position.set(-(CORRIDOR_WIDTH - 0.6)/4, 1.6, 0);
+        entranceGateGroup.add(entranceDoorPanelL);
+
+        entranceDoorPanelR = new THREE.Mesh(new THREE.BoxGeometry((CORRIDOR_WIDTH - 0.6)/2, 3.2, 0.15), entranceMetalMat);
+        entranceDoorPanelR.position.set((CORRIDOR_WIDTH - 0.6)/4, 1.6, 0);
+        entranceGateGroup.add(entranceDoorPanelR);
+
+        entranceGateGroup.traverse(child => {
+            if(child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+            }
+        });
+        scene.add(entranceGateGroup);
+
         // --- BAŞHEKİMİN ODASI (GİZLİ SEKTÖR 5) OLUŞTURMA ---
         function createSecretRoom() {
         // Zemin ve Tavan
@@ -1889,6 +2047,113 @@
         colliders.push({ minX: -4.5, maxX: -2.1, minZ: -160.5, maxZ: -159.5 }); // Giriş sol duvarı
         colliders.push({ minX: 2.1, maxX: 4.5, minZ: -160.5, maxZ: -159.5 });  // Giriş sağ duvarı
         colliders.push({ minX: -1.1, maxX: 1.1, minZ: -169.1, maxZ: -166.9 }); // Masa
+
+        // --- GİZLİ ODA VE KİLİTLİ ÇIKIŞ KAPISI OLUŞTURMA ---
+        const secretFloorGeo = new THREE.PlaneGeometry(6, 14);
+        const secretFloorMat = new THREE.MeshStandardMaterial({
+            color: 0x111113,
+            roughness: 0.85,
+            metalness: 0.1
+        });
+        const secretFloor = new THREE.Mesh(secretFloorGeo, secretFloorMat);
+        secretFloor.rotation.x = -Math.PI / 2;
+        secretFloor.position.set(0, 0, -182);
+        secretFloor.receiveShadow = true;
+        scene.add(secretFloor);
+
+        const secretCeilGeo = new THREE.PlaneGeometry(6, 14);
+        const secretCeiling = new THREE.Mesh(secretCeilGeo, secretFloorMat);
+        secretCeiling.rotation.x = Math.PI / 2;
+        secretCeiling.position.set(0, CORRIDOR_HEIGHT, -182);
+        scene.add(secretCeiling);
+
+        const secretLeftWall = new THREE.Mesh(new THREE.PlaneGeometry(14, CORRIDOR_HEIGHT), wallMat);
+        secretLeftWall.rotation.y = Math.PI / 2;
+        secretLeftWall.position.set(-3, CORRIDOR_HEIGHT / 2, -182);
+        secretLeftWall.receiveShadow = true;
+        scene.add(secretLeftWall);
+
+        const secretRightWall = new THREE.Mesh(new THREE.PlaneGeometry(14, CORRIDOR_HEIGHT), wallMat);
+        secretRightWall.rotation.y = -Math.PI / 2;
+        secretRightWall.position.set(3, CORRIDOR_HEIGHT / 2, -182);
+        secretRightWall.receiveShadow = true;
+        scene.add(secretRightWall);
+
+        const backWallPartGeo = new THREE.PlaneGeometry(2.2, CORRIDOR_HEIGHT);
+        const secretBackWallL = new THREE.Mesh(backWallPartGeo, wallMat);
+        secretBackWallL.position.set(-1.9, CORRIDOR_HEIGHT / 2, -189);
+        secretBackWallL.receiveShadow = true;
+        scene.add(secretBackWallL);
+
+        const secretBackWallR = new THREE.Mesh(backWallPartGeo, wallMat);
+        secretBackWallR.position.set(1.9, CORRIDOR_HEIGHT / 2, -189);
+        secretBackWallR.receiveShadow = true;
+        scene.add(secretBackWallR);
+
+        const secretBackWallTopGeo = new THREE.PlaneGeometry(1.6, 0.6);
+        const secretBackWallTop = new THREE.Mesh(secretBackWallTopGeo, wallMat);
+        secretBackWallTop.position.set(0, CORRIDOR_HEIGHT - 0.3, -189);
+        scene.add(secretBackWallTop);
+
+        const finalExitDoorGeo = new THREE.BoxGeometry(1.6, 3.0, 0.1);
+        const finalExitDoorMat = new THREE.MeshStandardMaterial({
+            color: 0x4a2a18,
+            roughness: 0.7,
+            metalness: 0.3
+        });
+        finalExitDoorPanelL = new THREE.Mesh(finalExitDoorGeo, finalExitDoorMat);
+        finalExitDoorPanelL.position.set(0, 1.5, -189);
+        finalExitDoorPanelL.castShadow = true;
+        finalExitDoorPanelL.receiveShadow = true;
+        scene.add(finalExitDoorPanelL);
+
+        const tableGeo = new THREE.BoxGeometry(1.0, 0.8, 1.0);
+        const tableMat = new THREE.MeshStandardMaterial({ color: 0x3d2b1f, roughness: 0.9 });
+        const keyTable = new THREE.Mesh(tableGeo, tableMat);
+        keyTable.position.set(-1.8, 0.4, -182);
+        keyTable.castShadow = true;
+        keyTable.receiveShadow = true;
+        scene.add(keyTable);
+
+        const keyGroup = new THREE.Group();
+        const keyRingGeo = new THREE.TorusGeometry(0.08, 0.02, 8, 16);
+        const keyMat = new THREE.MeshStandardMaterial({
+            color: 0xffd700,
+            metalness: 0.8,
+            roughness: 0.2,
+            emissive: 0xaa8800
+        });
+        const ring = new THREE.Mesh(keyRingGeo, keyMat);
+        keyGroup.add(ring);
+
+        const shaftGeo = new THREE.CylinderGeometry(0.015, 0.015, 0.2, 8);
+        const shaft = new THREE.Mesh(shaftGeo, keyMat);
+        shaft.position.y = -0.12;
+        shaft.rotation.x = Math.PI / 2;
+        keyGroup.add(shaft);
+
+        const teethGeo = new THREE.BoxGeometry(0.04, 0.06, 0.02);
+        const teeth = new THREE.Mesh(teethGeo, keyMat);
+        teeth.position.set(0.04, -0.2, 0);
+        keyGroup.add(teeth);
+
+        keyMesh = keyGroup;
+        keyMesh.position.set(-1.8, 0.9, -182);
+        scene.add(keyMesh);
+
+        const keyLight = new THREE.PointLight(0xffdd66, 2.0, 3.0);
+        keyLight.position.set(-1.8, 1.8, -182);
+        scene.add(keyLight);
+
+        // Çarpışma Sınırları
+        colliders.push({ minX: -4.5, maxX: -3.0, minZ: -190, maxZ: -174.5 }); // Sol duvar
+        colliders.push({ minX: 3.0, maxX: 4.5, minZ: -190, maxZ: -174.5 });  // Sağ duvar
+        colliders.push({ minX: -3.5, maxX: -0.8, minZ: -189.5, maxZ: -188.5 }); // Arka sol duvar
+        colliders.push({ minX: 0.8, maxX: 3.5, minZ: -189.5, maxZ: -188.5 });  // Arka sağ duvar
+        colliders.push({ minX: -2.3, maxX: -1.3, minZ: -183.0, maxZ: -181.0 }); // Masa
+        
+        finalExitDoorCollider = { minX: -0.9, maxX: 0.9, minZ: -189.5, maxZ: -188.5 }; // Çıkış kapısı
+        colliders.push(finalExitDoorCollider);
         }
 
 
@@ -1897,13 +2162,15 @@
         const colliders = [];
 
         // Sol Duvar Sınırı
-        colliders.push({ minX: -CORRIDOR_WIDTH/2, maxX: -CORRIDOR_WIDTH/2 + 0.3, minZ: -CORRIDOR_LENGTH, maxZ: 0 });
+        colliders.push({ minX: -CORRIDOR_WIDTH/2, maxX: -CORRIDOR_WIDTH/2 + 0.3, minZ: -CORRIDOR_LENGTH, maxZ: 10 });
         // Sağ Duvar Sınırı
-        colliders.push({ minX: CORRIDOR_WIDTH/2 - 0.3, maxX: CORRIDOR_WIDTH/2, minZ: -CORRIDOR_LENGTH, maxZ: 0 });
+        colliders.push({ minX: CORRIDOR_WIDTH/2 - 0.3, maxX: CORRIDOR_WIDTH/2, minZ: -CORRIDOR_LENGTH, maxZ: 10 });
         // Başlangıç Duvarı (Giriş)
         colliders.push({ minX: -CORRIDOR_WIDTH/2, maxX: CORRIDOR_WIDTH/2, minZ: -0.5, maxZ: 0.5 });
         // Son Kapı Sınırı (Kilitliyken geçilmesin)
         colliders.push({ minX: -CORRIDOR_WIDTH/2, maxX: CORRIDOR_WIDTH/2, minZ: -CORRIDOR_LENGTH - 0.5, maxZ: -CORRIDOR_LENGTH + 0.35 });
+        // Dış Arka Duvar Sınırı
+        colliders.push({ minX: -CORRIDOR_WIDTH/2, maxX: CORRIDOR_WIDTH/2, minZ: 7.9, maxZ: 8.5 });
 
         // Mobilyaların Çarpışma Sınırları
         // Tekerlekli Sandalyeler
@@ -1916,13 +2183,15 @@
         createSecretRoom();
 
 
-        // Oyuncuyu Başlat (0, Yükseklik: 1.6 - Göz seviyesi, Başlangıç Z koordinatı: -2)
-        camera.position.set(0, 1.65, -1.5);
+        // Oyuncuyu Başlat (Dışarıda, Z koordinatı: 6.0)
+        camera.position.set(0, 1.65, 6.0);
         camera.rotation.set(0, Math.PI, 0); // Koridora doğru dönük başlat (Z'nin eksisine bakacak şekilde)
 
 
         // --- HİKAYE VE DİNAMİK KORKUTMA (JUMPSCARE) ETKİNLİKLERİ ---
         let triggeredEvents = {
+        enteredHospital: false,
+        enteredSecretRoom: false,
         whisper1: false,
         flickerOut: false,
         ghostHallucination: false,
@@ -1946,15 +2215,52 @@
         }, duration);
         }
 
-        // Hayalet Silüeti Mesh'i (Shadow figure in distance)
-        const ghostGeo = new THREE.CylinderGeometry(0.3, 0.4, 1.8, 8);
-        const ghostMat = new THREE.MeshBasicMaterial({
-        color: 0x010101,
-        transparent: true,
-        opacity: 0.0
+        // Hayalet Silüeti (Group containing head, glowing eyes, body)
+        const ghostMesh = new THREE.Group();
+
+        // 1. Hayalet Gövdesi (Tapered glowing white cone, semi-transparent)
+        const ghostBodyGeo = new THREE.ConeGeometry(0.5, 1.8, 16);
+        const ghostBodyMat = new THREE.MeshStandardMaterial({
+            color: 0xcccccc,
+            emissive: 0x334455,
+            transparent: true,
+            opacity: 0.0,
+            roughness: 0.9,
+            metalness: 0.1
         });
-        const ghostMesh = new THREE.Mesh(ghostGeo, ghostMat);
-        ghostMesh.position.set(0, 0.9, -52); // İleride ışığın altında bekleyecek
+        const ghostBody = new THREE.Mesh(ghostBodyGeo, ghostBodyMat);
+        ghostBody.position.y = 0.9;
+        ghostMesh.add(ghostBody);
+
+        // 2. Kafa (white skull/sphere)
+        const ghostHeadGeo = new THREE.SphereGeometry(0.25, 16, 16);
+        const ghostHeadMat = new THREE.MeshStandardMaterial({
+            color: 0xdddddd,
+            emissive: 0x222222,
+            transparent: true,
+            opacity: 0.0
+        });
+        const ghostHead = new THREE.Mesh(ghostHeadGeo, ghostHeadMat);
+        ghostHead.position.set(0, 1.9, 0);
+        ghostMesh.add(ghostHead);
+
+        // 3. Kırmızı Parlayan Gözler
+        const eyeGeo = new THREE.SphereGeometry(0.04, 8, 8);
+        const eyeMat = new THREE.MeshBasicMaterial({
+            color: 0xff0000,
+            transparent: true,
+            opacity: 0.0
+        });
+
+        const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
+        leftEye.position.set(-0.08, 1.92, 0.22); // Facing positive Z
+        ghostMesh.add(leftEye);
+
+        const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
+        rightEye.position.set(0.08, 1.92, 0.22);
+        ghostMesh.add(rightEye);
+
+        ghostMesh.position.set(0, 0.0, -52); // İleride ışığın altında bekleyecek
         scene.add(ghostMesh);
 
 
@@ -1966,6 +2272,16 @@
         let finalDoorUnlocked = false;
 
         function checkTriggerEvents(playerZ) {
+        // Tetikleyici 0: Z < -1.0 (Hastaneye Giriş)
+        if (playerZ < -1.0 && !triggeredEvents.enteredHospital) {
+            triggeredEvents.enteredHospital = true;
+            isEntranceDoorOpening = false;
+            isEntranceDoorClosing = true;
+            document.getElementById('objective-text').textContent = "GÖREV: Sektör 4'ün çıkış kapısını bul (Koridorun sonuna doğru ilerle)";
+            showSubtitle("*kapı arkandan büyük bir gürültüyle kapanır*", 3500);
+            soundEngine.playScaryMetalThud();
+        }
+
         // Tetikleyici 1: Z = -10 (Fısıltı sesi)
         if (playerZ < -10 && !triggeredEvents.whisper1) {
         triggeredEvents.whisper1 = true;
@@ -1994,7 +2310,11 @@
         triggeredEvents.ghostHallucination = true;
 
         // Gölgeyi görünür yap
-        ghostMesh.material.opacity = 0.85;
+        ghostMesh.traverse(child => {
+            if (child.material) {
+                child.material.opacity = 0.85;
+            }
+        });
         showSubtitle("Aman Tanrım, o da ne?!", 1800);
         soundEngine.setBPM(135);
 
@@ -2081,14 +2401,21 @@
         }
         }
 
-        // Tetikleyici 7: GİZLİ GEÇİTTEN KAÇIŞ (Z < -175.2)
-        if (playerZ < -175.2 && triggeredEvents.genActivated && !triggeredEvents.finalVictory) {
-        triggeredEvents.finalVictory = true;
-        controls.unlock();
-        document.getElementById('victory-screen').style.pointerEvents = 'auto';
-        document.getElementById('victory-screen').style.opacity = '1';
-        soundEngine.stopGeneratorRumble();
-        soundEngine.stopEmergencyAlarm();
+        // Tetikleyici 7: GİZLİ ODAYA GİRİŞ (Z < -175.5)
+        if (playerZ < -175.5 && !triggeredEvents.enteredSecretRoom) {
+            triggeredEvents.enteredSecretRoom = true;
+            document.getElementById('objective-text').textContent = "GÖREV: Odadaki gizli anahtarı bul!";
+            showSubtitle("Burası gizli bir oda... Çıkış kapısı kilitli olmalı. Anahtarı aramalıyım.", 4000);
+        }
+
+        // Tetikleyici 8: KİLİTLİ KAPIDAN ÇIKIŞ VE ZAFER (Z < -189.2)
+        if (playerZ < -189.2 && finalExitDoorOpen && !triggeredEvents.finalVictory) {
+            triggeredEvents.finalVictory = true;
+            controls.unlock();
+            document.getElementById('victory-screen').style.pointerEvents = 'auto';
+            document.getElementById('victory-screen').style.opacity = '1';
+            soundEngine.stopGeneratorRumble();
+            soundEngine.stopEmergencyAlarm();
         }
         }
 
@@ -2372,6 +2699,52 @@
         }
         }
 
+        function updateEntranceDoor(delta) {
+            if (isEntranceDoorOpening) {
+                if (entranceDoorOpenProgress < 1.0) {
+                    entranceDoorOpenProgress += 0.8 * delta;
+                    if (entranceDoorOpenProgress > 1.0) entranceDoorOpenProgress = 1.0;
+
+                    const maxSlide = (CORRIDOR_WIDTH - 0.6) / 2 - 0.2;
+                    if (entranceDoorPanelL) {
+                        entranceDoorPanelL.position.x = -((CORRIDOR_WIDTH - 0.6)/4) - (maxSlide * entranceDoorOpenProgress);
+                    }
+                    if (entranceDoorPanelR) {
+                        entranceDoorPanelR.position.x = ((CORRIDOR_WIDTH - 0.6)/4) + (maxSlide * entranceDoorOpenProgress);
+                    }
+                }
+            } else if (isEntranceDoorClosing) {
+                if (entranceDoorOpenProgress > 0.0) {
+                    entranceDoorOpenProgress -= 1.8 * delta; // Closes faster for spookiness!
+                    if (entranceDoorOpenProgress < 0.0) {
+                        entranceDoorOpenProgress = 0.0;
+                        isEntranceDoorClosing = false;
+                    }
+
+                    const maxSlide = (CORRIDOR_WIDTH - 0.6) / 2 - 0.2;
+                    if (entranceDoorPanelL) {
+                        entranceDoorPanelL.position.x = -((CORRIDOR_WIDTH - 0.6)/4) - (maxSlide * entranceDoorOpenProgress);
+                    }
+                    if (entranceDoorPanelR) {
+                        entranceDoorPanelR.position.x = ((CORRIDOR_WIDTH - 0.6)/4) + (maxSlide * entranceDoorOpenProgress);
+                    }
+                }
+            }
+        }
+
+        function updateFinalExitDoor(delta) {
+            if (isFinalExitDoorOpening) {
+                if (finalExitDoorOpenProgress < 1.0) {
+                    finalExitDoorOpenProgress += 1.0 * delta;
+                    if (finalExitDoorOpenProgress > 1.0) finalExitDoorOpenProgress = 1.0;
+
+                    if (finalExitDoorPanelL) {
+                        finalExitDoorPanelL.position.x = -1.5 * finalExitDoorOpenProgress;
+                    }
+                }
+            }
+        }
+
         let genBlinkTimer = 0;
 
         function animate(time) {
@@ -2382,6 +2755,17 @@
 
         // Oyuncu Hareketini Güncelle
         handleMovement(delta);
+
+        // Hayalet Süzülme ve Titreme Animasyonu
+        if (ghostMesh && ghostMesh.parent) {
+            ghostMesh.position.y = 0.1 * Math.sin(elapsed * 4.0);
+            ghostMesh.rotation.y = 0.05 * Math.sin(elapsed * 12.0);
+        }
+
+        // Anahtar Dönüş Animasyonu
+        if (keyMesh && keyMesh.parent) {
+            keyMesh.rotation.y += 1.5 * delta;
+        }
 
         // Fenerin Pozisyonunu ve Hedefini Kameraya Bağla
         if (isFlashlightOn) {
@@ -2424,27 +2808,77 @@
         }
         }
 
-        // Mektup Etkileşimi Menzil Kontrolü
+        // Etkileşimler Menzil Kontrolü
         const interactionPrompt = document.getElementById('interaction-prompt');
-        const distToLetter = Math.sqrt((camera.position.x - 2.8) ** 2 + (camera.position.z - -170.8) ** 2);
-
-        if (triggeredEvents.escaped && !triggeredEvents.letterRead && distToLetter < 2.0 && controls.isLocked) {
-        interactionPrompt.textContent = "[E] Dr. Aris'in Notunu Oku";
-        interactionPrompt.style.display = 'block';
-        isNearLetter = true;
-        } else {
+        let promptShown = false;
+        
+        isNearKey = false;
+        isNearFinalExitDoor = false;
+        isNearEntranceDoor = false;
         isNearLetter = false;
-
-        // Jeneratör Etkileşimi Menzil Kontrolü
-        const distToGen = Math.sqrt((camera.position.x - 0) ** 2 + (camera.position.z - -174.4) ** 2);
-        if (triggeredEvents.letterRead && !triggeredEvents.genActivated && distToGen < 1.8 && controls.isLocked) {
-        interactionPrompt.textContent = "[E] Jeneratörü Aktif Et";
-        interactionPrompt.style.display = 'block';
-        isNearGen = true;
-        } else {
         isNearGen = false;
-        interactionPrompt.style.display = 'none';
+
+        if (controls.isLocked) {
+            if (triggeredEvents.enteredSecretRoom) {
+                // 1. Anahtar Etkileşimi
+                const distToKey = Math.sqrt((camera.position.x - (-1.8)) ** 2 + (camera.position.z - (-182)) ** 2);
+                if (!hasKey && distToKey < 1.8) {
+                    interactionPrompt.textContent = "[E] Anahtarı Al";
+                    interactionPrompt.style.display = 'block';
+                    isNearKey = true;
+                    promptShown = true;
+                } 
+                // 2. Final Kapı Etkileşimi
+                else {
+                    const distToFinalExit = Math.sqrt((camera.position.x - 0) ** 2 + (camera.position.z - (-189)) ** 2);
+                    if (!finalExitDoorOpen && distToFinalExit < 2.0) {
+                        if (hasKey) {
+                            interactionPrompt.textContent = "[E] Çıkış Kapısının Kilidini Aç";
+                        } else {
+                            interactionPrompt.textContent = "Kapı Kilitli (Anahtara ihtiyacın var)";
+                        }
+                        interactionPrompt.style.display = 'block';
+                        isNearFinalExitDoor = true;
+                        promptShown = true;
+                    }
+                }
+            } else {
+                // 3. Giriş Kapısı Etkileşimi
+                if (!triggeredEvents.enteredHospital) {
+                    const distToEntrance = Math.sqrt((camera.position.x - 0) ** 2 + (camera.position.z - 0) ** 2);
+                    if (distToEntrance < 2.5 && entranceDoorOpenProgress === 0) {
+                        interactionPrompt.textContent = "[E] Hastane Kapısını Aç";
+                        interactionPrompt.style.display = 'block';
+                        isNearEntranceDoor = true;
+                        promptShown = true;
+                    }
+                }
+                
+                if (!promptShown) {
+                    // 4. Mektup Etkileşimi
+                    const distToLetter = Math.sqrt((camera.position.x - 2.8) ** 2 + (camera.position.z - -170.8) ** 2);
+                    if (triggeredEvents.escaped && !triggeredEvents.letterRead && distToLetter < 2.0) {
+                        interactionPrompt.textContent = "[E] Dr. Aris'in Notunu Oku";
+                        interactionPrompt.style.display = 'block';
+                        isNearLetter = true;
+                        promptShown = true;
+                    }
+                    // 5. Jeneratör Etkileşimi
+                    else {
+                        const distToGen = Math.sqrt((camera.position.x - 0) ** 2 + (camera.position.z - -174.4) ** 2);
+                        if (triggeredEvents.letterRead && !triggeredEvents.genActivated && distToGen < 1.8) {
+                            interactionPrompt.textContent = "[E] Jeneratörü Aktif Et";
+                            interactionPrompt.style.display = 'block';
+                            isNearGen = true;
+                            promptShown = true;
+                        }
+                    }
+                }
+            }
         }
+
+        if (!promptShown) {
+            interactionPrompt.style.display = 'none';
         }
 
         // Jeneratör LED Işığı Kırpışması
@@ -2469,6 +2903,8 @@
 
         // Kapı Açılmasını Güncelle
         updateDoorOpening(delta);
+        updateEntranceDoor(delta);
+        updateFinalExitDoor(delta);
 
         // Render Et
         renderer.render(scene, camera);
